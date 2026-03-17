@@ -1,5 +1,5 @@
 // ============================================
-// DASHBOARD CENTRO TÉCNICO - FILTROS REORGANIZADOS
+// DASHBOARD CENTRO TÉCNICO - COM SUB-FILTRO MOBILE
 // ============================================
 
 const processor = new ProdutividadeProcessor();
@@ -10,6 +10,7 @@ let filtroAtual = {
     dataInicio: null,
     dataFim: null,
     tipologia: 'todas',
+    mobileTipo: 'todos', // 'todos', 'cliente', 'dg'
     polo: 'todos'
 };
 
@@ -55,9 +56,19 @@ function mostrarProdutividade() {
                         <!-- Tipologia -->
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-weight: 500; color: #475569; font-size: 14px;">🏷️ Tipologia:</span>
-                            <select id="filtroTipologia" onchange="aplicarFiltroTipologia(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 150px; font-size: 14px;">
+                            <select id="filtroTipologia" onchange="onTipologiaChange(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 150px; font-size: 14px;">
                                 <option value="todas">Todas</option>
                                 ${gerarOpcoesTipologia()}
+                            </select>
+                        </div>
+                        
+                        <!-- SUB-FILTRO MOBILE (aparece apenas quando Mobile é selecionado) -->
+                        <div id="mobileSubFiltroContainer" style="display: none; align-items: center; gap: 8px;">
+                            <span style="font-weight: 500; color: #475569; font-size: 14px;">📱 Mobile:</span>
+                            <select id="mobileTipo" onchange="aplicarFiltroMobileTipo(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 120px; font-size: 14px;">
+                                <option value="todos">Todos</option>
+                                <option value="cliente">Cliente</option>
+                                <option value="dg">D&G</option>
                             </select>
                         </div>
                         
@@ -218,6 +229,29 @@ function atualizarFiltroTipologia() {
     }
 }
 
+// Quando a tipologia muda
+function onTipologiaChange(tipologia) {
+    const mobileSubFiltro = document.getElementById('mobileSubFiltroContainer');
+    
+    if (tipologia === 'Mobile') {
+        mobileSubFiltro.style.display = 'flex';
+    } else {
+        mobileSubFiltro.style.display = 'none';
+        filtroAtual.mobileTipo = 'todos'; // Reseta o filtro mobile
+    }
+    
+    filtroAtual.tipologia = tipologia;
+    aplicarFiltros();
+    atualizarInfoFiltro();
+}
+
+// Aplica filtro por tipo de mobile (Cliente ou D&G)
+function aplicarFiltroMobileTipo(tipo) {
+    filtroAtual.mobileTipo = tipo;
+    aplicarFiltros();
+    atualizarInfoFiltro();
+}
+
 // Aplica filtro por polo
 function aplicarFiltroPolo(polo) {
     filtroAtual.polo = polo;
@@ -277,13 +311,6 @@ function aplicarFiltroPersonalizado() {
     atualizarInfoFiltro();
 }
 
-// Aplica filtro por tipologia
-function aplicarFiltroTipologia(tipologia) {
-    filtroAtual.tipologia = tipologia;
-    aplicarFiltros();
-    atualizarInfoFiltro();
-}
-
 // Atualiza a mensagem de info com todos os filtros ativos
 function atualizarInfoFiltro() {
     const infoElement = document.getElementById('infoFiltro');
@@ -309,6 +336,12 @@ function atualizarInfoFiltro() {
     // Informação de tipologia
     if (filtroAtual.tipologia !== 'todas') {
         infoText += ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>`;
+        
+        // Se for Mobile e tiver sub-filtro ativo
+        if (filtroAtual.tipologia === 'Mobile' && filtroAtual.mobileTipo !== 'todos') {
+            const mobileTexto = filtroAtual.mobileTipo === 'cliente' ? 'Cliente' : 'D&G';
+            infoText += ` <span style="background: #2563eb20; padding: 2px 6px; border-radius: 12px;">${mobileTexto}</span>`;
+        }
     }
     
     // Informação de polo
@@ -341,6 +374,20 @@ function aplicarFiltros() {
         dadosFiltrados = dadosFiltrados.filter(item => 
             item.tipologia && item.tipologia === filtroAtual.tipologia
         );
+        
+        // Se for Mobile, aplica sub-filtro de Cliente/D&G
+        if (filtroAtual.tipologia === 'Mobile' && filtroAtual.mobileTipo !== 'todos') {
+            dadosFiltrados = dadosFiltrados.filter(item => {
+                if (filtroAtual.mobileTipo === 'dg') {
+                    // D&G: tipo_garantia = "Seguro D&G"
+                    return item.tipo_garantia === 'Seguro D&G';
+                } else if (filtroAtual.mobileTipo === 'cliente') {
+                    // Cliente: tipo_garantia diferente de "Seguro D&G"
+                    return item.tipo_garantia && item.tipo_garantia !== 'Seguro D&G';
+                }
+                return true;
+            });
+        }
     }
     
     // Aplica filtro de polo
@@ -430,7 +477,7 @@ async function handleUpload(e) {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard iniciado - Versão com filtros na mesma linha');
+    console.log('Dashboard iniciado - Versão com sub-filtro Mobile');
     
     const btnAbertos = document.getElementById('btnAbertos');
     const btnProd = document.getElementById('btnProdutividade');
