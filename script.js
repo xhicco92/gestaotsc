@@ -184,7 +184,7 @@ function mostrarProdutividade() {
                     <span class="material-icons" style="font-size: 48px;">upload_file</span>
                     <h3>Carregar ficheiro Excel</h3>
                     <p>Selecione o ficheiro com os dados da API</p>
-                    <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" style="display: none;">
+                    <input type="file" id="fileInput" accept=".xlsx, .xls, .csv">
                     <button onclick="document.getElementById('fileInput').click()" class="btn-upload">
                         Selecionar Ficheiro
                     </button>
@@ -195,7 +195,12 @@ function mostrarProdutividade() {
     `;
 
     // Adiciona o event listener para o upload
-    document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+    const fileInput = document.getElementById('fileInput');
+    if (fileInput) {
+        // Remove listeners antigos para não duplicar
+        fileInput.removeEventListener('change', handleFileUpload);
+        fileInput.addEventListener('change', handleFileUpload);
+    }
 }
 
 // ============================================
@@ -207,10 +212,13 @@ async function handleFileUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
 
-    document.getElementById('fileInfo').innerHTML = `
-        <span class="material-icons" style="font-size: 16px; vertical-align: middle;">check_circle</span> 
-        ${file.name} (${(file.size/1024).toFixed(2)} KB)
-    `;
+    const fileInfo = document.getElementById('fileInfo');
+    if (fileInfo) {
+        fileInfo.innerHTML = `
+            <span class="material-icons" style="font-size: 16px; vertical-align: middle;">check_circle</span> 
+            ${file.name} (${(file.size/1024).toFixed(2)} KB)
+        `;
+    }
 
     // Mostra loading
     mostrarLoading(true);
@@ -219,10 +227,16 @@ async function handleFileUpload(e) {
         await prodProcessor.carregarDados(file);
         
         // Esconde área de upload
-        document.getElementById('uploadArea').style.display = 'none';
+        const uploadArea = document.getElementById('uploadArea');
+        if (uploadArea) {
+            uploadArea.style.display = 'none';
+        }
         
         // Mostra gráfico de evolução
-        document.getElementById('graficoEvolucao').style.display = 'block';
+        const graficoEvolucao = document.getElementById('graficoEvolucao');
+        if (graficoEvolucao) {
+            graficoEvolucao.style.display = 'block';
+        }
         
         // Carrega dados de hoje inicialmente
         const botaoHoje = document.querySelector('.filtro-btn.active');
@@ -256,27 +270,39 @@ function filtrarProdutividade(periodo, elemento) {
     const stats = prodProcessor.calcularEstatisticas(dadosFiltrados, periodo);
     
     // Atualiza cards
-    document.getElementById('totalReparados').textContent = stats.totalReparados;
-    document.getElementById('mediaDiaria').textContent = stats.mediaDiaria.toFixed(1);
-    document.getElementById('tecnicosAtivos').textContent = stats.tecnicosAtivos;
-    document.getElementById('mediaPorTecnico').textContent = stats.mediaPorTecnico.toFixed(1);
+    const totalReparados = document.getElementById('totalReparados');
+    const mediaDiaria = document.getElementById('mediaDiaria');
+    const tecnicosAtivos = document.getElementById('tecnicosAtivos');
+    const mediaPorTecnico = document.getElementById('mediaPorTecnico');
+    
+    if (totalReparados) totalReparados.textContent = stats.totalReparados;
+    if (mediaDiaria) mediaDiaria.textContent = stats.mediaDiaria.toFixed(1);
+    if (tecnicosAtivos) tecnicosAtivos.textContent = stats.tecnicosAtivos;
+    if (mediaPorTecnico) mediaPorTecnico.textContent = stats.mediaPorTecnico.toFixed(1);
 
     // Atualiza tabela
     atualizarTabelaTecnicos(stats.reparados, periodo);
 
     // Se período > 1 dia, mostra gráfico de evolução
+    const graficoEvolucao = document.getElementById('graficoEvolucao');
     if (periodo !== 'hoje' && periodo !== 'ontem') {
-        document.getElementById('graficoEvolucao').style.display = 'block';
-        const evolucao = prodProcessor.agruparPorDia(dadosFiltrados);
-        desenharGraficoEvolucao(evolucao);
+        if (graficoEvolucao) {
+            graficoEvolucao.style.display = 'block';
+            const evolucao = prodProcessor.agruparPorDia(dadosFiltrados);
+            desenharGraficoEvolucao(evolucao);
+        }
     } else {
-        document.getElementById('graficoEvolucao').style.display = 'none';
+        if (graficoEvolucao) {
+            graficoEvolucao.style.display = 'none';
+        }
     }
 }
 
 // Atualiza tabela de técnicos
 function atualizarTabelaTecnicos(reparados, periodo) {
     const tbody = document.getElementById('corpoTabela');
+    if (!tbody) return;
+    
     const numeroDias = prodProcessor.calcularNumeroDias(periodo);
     
     // Ordena por número de reparados (decrescente)
@@ -317,6 +343,7 @@ function atualizarTabelaTecnicos(reparados, periodo) {
 // Desenha gráfico de evolução
 function desenharGraficoEvolucao(dados) {
     const container = document.getElementById('barrasEvolucao');
+    if (!container) return;
     
     if (!dados || dados.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: #64748b;">Sem dados para exibir</p>';
@@ -328,16 +355,12 @@ function desenharGraficoEvolucao(dados) {
     container.innerHTML = dados.map(dia => {
         const altura = (dia.total / maxTotal) * 180; // max 180px altura
         
-        // Formata a data (dd/mm para dd/mm)
-        const dataParts = dia.data.split('/');
-        const dataLabel = `${dataParts[0]}/${dataParts[1]}`;
-        
         return `
             <div class="barra-container">
                 <div class="barra" style="height: ${altura}px">
                     <span class="barra-valor">${dia.total}</span>
                 </div>
-                <span class="barra-label">${dataLabel}</span>
+                <span class="barra-label">${dia.data}</span>
             </div>
         `;
     }).join('');
@@ -361,6 +384,8 @@ function mostrarLoading(show) {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Dashboard inicializado');
+    
     // Atualiza a data no cabeçalho se existir
     const dataElement = document.getElementById('dataAtual');
     if (dataElement) {
