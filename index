@@ -9,23 +9,20 @@
 <body>
     <div class="container">
         <header>
-            <h1>📊 Dashboard Centro Técnico</h1>
+            <h1>DASHBOARD CENTRO TÉCNICO</h1>
         </header>
         
-        <div class="menu-principal">
-            <button id="btnAbertos" class="btn-dashboard btn-abertos">
-                📋 Abertos Área Técnica
+        <div class="botoes-principais">
+            <button class="botao-abertos" onclick="mostrarAbertos()">
+                ABERTOS ÁREA TÉCNICA
             </button>
-            <button id="btnProdutividade" class="btn-dashboard btn-produtividade">
-                ⚡ Produtividades
+            <button class="botao-produtividade" onclick="mostrarProdutividade()">
+                PRODUTIVIDADES
             </button>
         </div>
 
-        <div id="contentArea" class="content-area">
-            <div class="mensagem-inicial">
-                <p>👋 Bem-vindo ao Dashboard do Centro Técnico</p>
-                <p>Clique num dos botões acima para começar</p>
-            </div>
+        <div id="conteudo" class="conteudo">
+            <p class="mensagem-inicial">Clique num botão para começar</p>
         </div>
     </div>
 
