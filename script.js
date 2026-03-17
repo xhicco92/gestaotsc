@@ -9,7 +9,8 @@ let filtroAtual = {
     periodo: 'hoje',
     dataInicio: null,
     dataFim: null,
-    tipologia: 'todas'
+    tipologia: 'todas',
+    polo: 'todos'
 };
 
 function mostrarAbertos() {
@@ -63,6 +64,16 @@ function mostrarProdutividade() {
                         ${gerarOpcoesTipologia()}
                     </select>
                 </div>
+                
+                <!-- FILTRO DE LOCALIZAÇÃO (POLO) -->
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                    <span style="font-weight: bold; color: #475569;">📍 Localização:</span>
+                    <select id="filtroPolo" onchange="aplicarFiltroPolo(this.value)" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 200px;">
+                        <option value="todos">Todos os polos</option>
+                        <option value="TSC SOUTH">TSC SOUTH</option>
+                        <option value="TSC NORTH">TSC NORTH</option>
+                    </select>
+                </div>
             </div>
             
             <!-- CARDS DE RESUMO -->
@@ -90,7 +101,7 @@ function mostrarProdutividade() {
                 📍 Mostrando dados do período: <strong>Hoje</strong>
             </div>
             
-            <!-- TABELA -->
+            <!-- TABELA (SEM COLUNA DE POLO) -->
             <div style="margin: 20px 0;">
                 <h3 style="margin-bottom: 10px;">👥 Reparados por Técnico</h3>
                 <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
@@ -137,10 +148,10 @@ function mostrarProdutividade() {
         
         // Define datas padrão no filtro personalizado
         const hoje = new Date();
-        const ontem = new Date(hoje);
-        ontem.setDate(ontem.getDate() - 7);
+        const seteDiasAtras = new Date(hoje);
+        seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
         
-        document.getElementById('dataInicio').value = ontem.toISOString().split('T')[0];
+        document.getElementById('dataInicio').value = seteDiasAtras.toISOString().split('T')[0];
         document.getElementById('dataFim').value = hoje.toISOString().split('T')[0];
         
         // Se já há dados carregados, atualiza os filtros
@@ -157,14 +168,9 @@ function gerarOpcoesTipologia() {
         return '';
     }
     
-    const tipologias = new Set();
-    processor.dados.forEach(item => {
-        if (item.tipologia && item.tipologia.trim() !== '') {
-            tipologias.add(item.tipologia.trim());
-        }
-    });
+    const tipologias = processor.getTipologias();
     
-    return Array.from(tipologias).sort().map(tipologia => 
+    return tipologias.map(tipologia => 
         `<option value="${tipologia}">${tipologia}</option>`
     ).join('');
 }
@@ -175,6 +181,13 @@ function atualizarFiltroTipologia() {
         const options = gerarOpcoesTipologia();
         select.innerHTML = `<option value="todas">Todas as tipologias</option>${options}`;
     }
+}
+
+// Aplica filtro por polo
+function aplicarFiltroPolo(polo) {
+    filtroAtual.polo = polo;
+    aplicarFiltros();
+    atualizarInfoFiltro();
 }
 
 // Aplica filtro por período predefinido
@@ -192,16 +205,7 @@ function aplicarFiltroPeriodo(periodo, botao) {
     
     // Aplica filtro
     aplicarFiltros();
-    
-    // Atualiza info
-    const nomesPeriodo = {
-        'hoje': 'Hoje',
-        'ontem': 'Ontem',
-        'semana': 'Últimos 7 dias',
-        'mes': 'Últimos 30 dias',
-        'trimestre': 'Últimos 90 dias'
-    };
-    document.getElementById('infoFiltro').innerHTML = `📍 Mostrando dados do período: <strong>${nomesPeriodo[periodo]}</strong>${filtroAtual.tipologia !== 'todas' ? ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>` : ''}`;
+    atualizarInfoFiltro();
 }
 
 // Aplica filtro personalizado por datas
@@ -227,33 +231,49 @@ function aplicarFiltroPersonalizado() {
     
     // Aplica filtro
     aplicarFiltros();
-    
-    // Formata datas para exibição
-    const formatarData = (data) => {
-        return data.toLocaleDateString('pt-PT');
-    };
-    
-    document.getElementById('infoFiltro').innerHTML = `📍 Mostrando dados de <strong>${formatarData(filtroAtual.dataInicio)}</strong> até <strong>${formatarData(filtroAtual.dataFim)}</strong>${filtroAtual.tipologia !== 'todas' ? ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>` : ''}`;
+    atualizarInfoFiltro();
 }
 
 // Aplica filtro por tipologia
 function aplicarFiltroTipologia(tipologia) {
     filtroAtual.tipologia = tipologia;
     aplicarFiltros();
-    
-    // Atualiza info
+    atualizarInfoFiltro();
+}
+
+// Atualiza a mensagem de info com todos os filtros ativos
+function atualizarInfoFiltro() {
     const infoElement = document.getElementById('infoFiltro');
-    const infoText = infoElement.innerHTML;
+    let infoText = '';
     
-    if (tipologia === 'todas') {
-        infoElement.innerHTML = infoText.replace(/\| Tipologia:.*$/, '');
+    // Informação de período
+    if (filtroAtual.periodo === 'personalizado') {
+        const formatarData = (data) => {
+            return data.toLocaleDateString('pt-PT');
+        };
+        infoText = `📍 Período: <strong>${formatarData(filtroAtual.dataInicio)}</strong> até <strong>${formatarData(filtroAtual.dataFim)}</strong>`;
     } else {
-        if (infoText.includes('| Tipologia:')) {
-            infoElement.innerHTML = infoText.replace(/\| Tipologia:.*$/, ` | Tipologia: <strong>${tipologia}</strong>`);
-        } else {
-            infoElement.innerHTML += ` | Tipologia: <strong>${tipologia}</strong>`;
-        }
+        const nomesPeriodo = {
+            'hoje': 'Hoje',
+            'ontem': 'Ontem',
+            'semana': 'Últimos 7 dias',
+            'mes': 'Últimos 30 dias',
+            'trimestre': 'Últimos 90 dias'
+        };
+        infoText = `📍 Período: <strong>${nomesPeriodo[filtroAtual.periodo]}</strong>`;
     }
+    
+    // Informação de tipologia
+    if (filtroAtual.tipologia !== 'todas') {
+        infoText += ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>`;
+    }
+    
+    // Informação de polo
+    if (filtroAtual.polo !== 'todos') {
+        infoText += ` | Localização: <strong>${filtroAtual.polo}</strong>`;
+    }
+    
+    infoElement.innerHTML = infoText;
 }
 
 // Função principal de filtragem
@@ -280,6 +300,13 @@ function aplicarFiltros() {
         );
     }
     
+    // Aplica filtro de polo
+    if (filtroAtual.polo !== 'todos') {
+        dadosFiltrados = dadosFiltrados.filter(item => 
+            item.polo && item.polo === filtroAtual.polo
+        );
+    }
+    
     // Calcula estatísticas
     const stats = processor.calcularEstatisticas(dadosFiltrados, filtroAtual.periodo);
     
@@ -289,11 +316,11 @@ function aplicarFiltros() {
     document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
     document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
     
-    // Atualiza tabela
+    // Atualiza tabela (versão simples, sem polo)
     atualizarTabela(stats);
 }
 
-// Atualiza tabela com os dados filtrados
+// Atualiza tabela com os dados filtrados (versão simples)
 function atualizarTabela(stats) {
     const tabela = document.getElementById('tabela');
     
