@@ -21,11 +21,21 @@ class ProdutividadeProcessor {
                     // Converte para JSON
                     this.dados = XLSX.utils.sheet_to_json(worksheet);
                     
-                    // Extrai lista única de técnicos
-                    this.tecnicos = [...new Set(this.dados.map(item => item.Tecnico || item.Técnico || 'Não atribuído'))];
+                    // Filtra apenas TSC SOUTH
+                    this.dados = this.dados.filter(item => item.polo === 'TSC SOUTH');
                     
-                    console.log('Dados carregados:', this.dados.length, 'registos');
+                    // Extrai lista única de técnicos (que têm reparações)
+                    const tecnicosComReparacao = this.dados
+                        .filter(item => item.tecnico_reparacao && item.tecnico_reparacao.trim() !== '')
+                        .map(item => item.tecnico_reparacao);
+                    
+                    this.tecnicos = [...new Set(tecnicosComReparacao)];
+                    
+                    console.log('Dados carregados:', this.dados.length, 'registos (TSC SOUTH)');
                     console.log('Técnicos encontrados:', this.tecnicos);
+                    
+                    // Debug: mostra alguns exemplos
+                    console.log('Exemplo de registo:', this.dados[0]);
                     
                     resolve(this.dados);
                 } catch (error) {
@@ -37,48 +47,83 @@ class ProdutividadeProcessor {
         });
     }
 
-    // Filtra por período
+    // Filtra por período usando as colunas Dia/Mês/Ano
     filtrarPorPeriodo(periodo) {
         const hoje = new Date();
-        let dataInicio, dataFim = new Date(hoje);
+        const hojeDia = hoje.getDate();
+        const hojeMes = hoje.getMonth() + 1;
+        const hojeAno = hoje.getFullYear();
+        
+        // Filtra os dados que têm técnico atribuído
+        let dadosComTecnico = this.dados.filter(item => 
+            item.tecnico_reparacao && item.tecnico_reparacao.trim() !== ''
+        );
         
         switch(periodo) {
             case 'hoje':
-                dataInicio = new Date(hoje.setHours(0,0,0,0));
-                dataFim = new Date(hoje.setHours(23,59,59,999));
-                break;
+                return dadosComTecnico.filter(item => 
+                    item['Dia Reparação'] == hojeDia && 
+                    item['Mês Reparação'] == hojeMes && 
+                    item['Ano Reparação'] == hojeAno
+                );
+                
             case 'ontem':
                 const ontem = new Date(hoje);
                 ontem.setDate(ontem.getDate() - 1);
-                dataInicio = new Date(ontem.setHours(0,0,0,0));
-                dataFim = new Date(ontem.setHours(23,59,59,999));
-                break;
-            case 'semana':
-                dataInicio = new Date(hoje);
-                dataInicio.setDate(dataInicio.getDate() - 7);
-                dataInicio.setHours(0,0,0,0);
-                break;
-            case 'mes':
-                dataInicio = new Date(hoje);
-                dataInicio.setMonth(dataInicio.getMonth() - 1);
-                dataInicio.setHours(0,0,0,0);
-                break;
-            case 'trimestre':
-                dataInicio = new Date(hoje);
-                dataInicio.setMonth(dataInicio.getMonth() - 3);
-                dataInicio.setHours(0,0,0,0);
-                break;
+                return dadosComTecnico.filter(item => 
+                    item['Dia Reparação'] == ontem.getDate() && 
+                    item['Mês Reparação'] == (ontem.getMonth() + 1) && 
+                    item['Ano Reparação'] == ontem.getFullYear()
+                );
+                
+            case 'semana': {
+                const dataLimite = new Date(hoje);
+                dataLimite.setDate(dataLimite.getDate() - 7);
+                
+                return dadosComTecnico.filter(item => {
+                    const dataItem = new Date(
+                        item['Ano Reparação'],
+                        item['Mês Reparação'] - 1,
+                        item['Dia Reparação']
+                    );
+                    return dataItem >= dataLimite && dataItem <= hoje;
+                });
+            }
+                
+            case 'mes': {
+                const dataLimite = new Date(hoje);
+                dataLimite.setMonth(dataLimite.getMonth() - 1);
+                
+                return dadosComTecnico.filter(item => {
+                    const dataItem = new Date(
+                        item['Ano Reparação'],
+                        item['Mês Reparação'] - 1,
+                        item['Dia Reparação']
+                    );
+                    return dataItem >= dataLimite && dataItem <= hoje;
+                });
+            }
+                
+            case 'trimestre': {
+                const dataLimite = new Date(hoje);
+                dataLimite.setMonth(dataLimite.getMonth() - 3);
+                
+                return dadosComTecnico.filter(item => {
+                    const dataItem = new Date(
+                        item['Ano Reparação'],
+                        item['Mês Reparação'] - 1,
+                        item['Dia Reparação']
+                    );
+                    return dataItem >= dataLimite && dataItem <= hoje;
+                });
+            }
+                
             default:
-                return this.dados;
+                return dadosComTecnico;
         }
-        
-        return this.dados.filter(item => {
-            const dataItem = new Date(item.Data || item.data);
-            return dataItem >= dataInicio && dataItem <= dataFim;
-        });
     }
 
-    // Calcula reparados por técnico (assumindo coluna "Status" = "Concluído" ou similar)
+    // Calcula reparados por técnico
     calcularReparadosPorTecnico(dadosFiltrados) {
         const reparados = {};
         
@@ -87,13 +132,10 @@ class ProdutividadeProcessor {
             reparados[tecnico] = 0;
         });
         
-        // Conta apenas os concluídos
+        // Conta os reparados
         dadosFiltrados.forEach(item => {
-            const tecnico = item.Tecnico || item.Técnico || 'Não atribuído';
-            const status = (item.Status || item.status || '').toLowerCase();
-            
-            // Considera como reparado se status contém "concluído", "finalizado", "reparado"
-            if (status.includes('conclu') || status.includes('finaliz') || status.includes('reparado')) {
+            const tecnico = item.tecnico_reparacao;
+            if (tecnico && tecnico.trim() !== '') {
                 reparados[tecnico] = (reparados[tecnico] || 0) + 1;
             }
         });
@@ -149,25 +191,69 @@ class ProdutividadeProcessor {
         const dias = {};
         
         dadosFiltrados.forEach(item => {
-            const data = new Date(item.Data || item.data).toLocaleDateString('pt-PT');
-            const status = (item.Status || item.status || '').toLowerCase();
+            if (!item.tecnico_reparacao) return;
             
-            if (!dias[data]) {
-                dias[data] = {
-                    data,
+            // Cria chave no formato DD/MM/AAAA
+            const dia = item['Dia Reparação'];
+            const mes = item['Mês Reparação'];
+            const ano = item['Ano Reparação'];
+            
+            if (!dia || !mes || !ano) return;
+            
+            const dataStr = `${dia.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}/${ano}`;
+            
+            if (!dias[dataStr]) {
+                dias[dataStr] = {
+                    data: dataStr,
                     total: 0,
                     porTecnico: {}
                 };
             }
             
-            if (status.includes('conclu') || status.includes('finaliz') || status.includes('reparado')) {
-                dias[data].total++;
-                
-                const tecnico = item.Tecnico || item.Técnico || 'Não atribuído';
-                dias[data].porTecnico[tecnico] = (dias[data].porTecnico[tecnico] || 0) + 1;
+            dias[dataStr].total++;
+            
+            const tecnico = item.tecnico_reparacao;
+            if (tecnico) {
+                dias[dataStr].porTecnico[tecnico] = (dias[dataStr].porTecnico[tecnico] || 0) + 1;
             }
         });
         
-        return Object.values(dias).sort((a, b) => new Date(a.data) - new Date(b.data));
+        // Converte para array e ordena por data
+        return Object.values(dias).sort((a, b) => {
+            const [diaA, mesA, anoA] = a.data.split('/').map(Number);
+            const [diaB, mesB, anoB] = b.data.split('/').map(Number);
+            
+            if (anoA !== anoB) return anoA - anoB;
+            if (mesA !== mesB) return mesA - mesB;
+            return diaA - diaB;
+        });
+    }
+
+    // Função para debug - mostra estatísticas
+    debugEstatisticas() {
+        console.log('=== DEBUG ESTATÍSTICAS ===');
+        console.log('Total registos TSC SOUTH:', this.dados.length);
+        
+        const comTecnico = this.dados.filter(d => d.tecnico_reparacao && d.tecnico_reparacao.trim() !== '');
+        console.log('Com técnico atribuído:', comTecnico.length);
+        
+        // Conta por ano/mês
+        const porAnoMes = {};
+        comTecnico.forEach(d => {
+            const ano = d['Ano Reparação'];
+            const mes = d['Mês Reparação'];
+            const key = `${ano}/${mes}`;
+            porAnoMes[key] = (porAnoMes[key] || 0) + 1;
+        });
+        
+        console.log('Reparados por ano/mês:', porAnoMes);
+        
+        // Top técnicos
+        const porTecnico = this.calcularReparadosPorTecnico(comTecnico);
+        const topTecnicos = Object.entries(porTecnico)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+        
+        console.log('Top 5 técnicos (todos os tempos):', topTecnicos);
     }
 }
