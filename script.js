@@ -1,8 +1,16 @@
 // ============================================
-// DASHBOARD CENTRO TÉCNICO - VERSÃO DEBUG
+// DASHBOARD CENTRO TÉCNICO - COM FILTROS AVANÇADOS
 // ============================================
 
 const processor = new ProdutividadeProcessor();
+
+// Estado atual dos filtros
+let filtroAtual = {
+    periodo: 'hoje',
+    dataInicio: null,
+    dataFim: null,
+    tipologia: 'todas'
+};
 
 function mostrarAbertos() {
     document.getElementById('conteudo').innerHTML = `
@@ -20,15 +28,44 @@ function mostrarProdutividade() {
             <h2 style="margin-bottom: 20px;">📊 Produtividade dos Técnicos</h2>
             
             <!-- FILTROS -->
-            <div class="filtros">
-                <button class="filtro-btn active" onclick="filtrar('hoje', this)">Hoje</button>
-                <button class="filtro-btn" onclick="filtrar('ontem', this)">Ontem</button>
-                <button class="filtro-btn" onclick="filtrar('semana', this)">7 dias</button>
-                <button class="filtro-btn" onclick="filtrar('mes', this)">30 dias</button>
-                <button class="filtro-btn" onclick="filtrar('trimestre', this)">90 dias</button>
+            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('hoje', this)">Hoje</button>
+                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('ontem', this)">Ontem</button>
+                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('semana', this)">7 dias</button>
+                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('mes', this)">30 dias</button>
+                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('trimestre', this)">90 dias</button>
+                </div>
+                
+                <!-- FILTRO DE DATA PERSONALIZADA -->
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                    <span style="font-weight: bold; color: #475569;">📅 Período Personalizado:</span>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <div>
+                            <label style="font-size: 12px; color: #64748b;">De:</label>
+                            <input type="date" id="dataInicio" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #64748b;">Até:</label>
+                            <input type="date" id="dataFim" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        </div>
+                        <button onclick="aplicarFiltroPersonalizado()" style="background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                            Aplicar
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- FILTRO DE TIPOLOGIA -->
+                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; padding-top: 15px; border-top: 1px solid #e2e8f0;">
+                    <span style="font-weight: bold; color: #475569;">🏷️ Tipologia:</span>
+                    <select id="filtroTipologia" onchange="aplicarFiltroTipologia(this.value)" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 200px;">
+                        <option value="todas">Todas as tipologias</option>
+                        ${gerarOpcoesTipologia()}
+                    </select>
+                </div>
             </div>
             
-            <!-- CARDS -->
+            <!-- CARDS DE RESUMO -->
             <div class="cards">
                 <div class="card">
                     <small>Total Reparados</small>
@@ -48,46 +85,44 @@ function mostrarProdutividade() {
                 </div>
             </div>
             
+            <!-- INFORMAÇÃO DO FILTRO ATIVO -->
+            <div id="infoFiltro" style="background: #e0f2fe; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 14px; color: #0369a1;">
+                📍 Mostrando dados do período: <strong>Hoje</strong>
+            </div>
+            
             <!-- TABELA -->
             <div style="margin: 20px 0;">
-                <h3 style="margin-bottom: 10px;">Reparados por Técnico</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Técnico</th>
-                            <th>Quantidade</th>
-                            <th>Média/Dia</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela">
-                        <tr>
-                            <td colspan="3" style="text-align: center; padding: 30px;">
-                                Carregue um ficheiro para começar
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                <h3 style="margin-bottom: 10px;">👥 Reparados por Técnico</h3>
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: #f1f5f9;">
+                            <tr>
+                                <th style="padding: 10px; text-align: left;">Técnico</th>
+                                <th style="padding: 10px; text-align: left;">Quantidade</th>
+                                <th style="padding: 10px; text-align: left;">Média/Dia</th>
+                                <th style="padding: 10px; text-align: left;">%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela">
+                            <tr>
+                                <td colspan="4" style="text-align: center; padding: 30px;">
+                                    Carregue um ficheiro para começar
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             
             <!-- UPLOAD -->
-            <div class="upload-area">
+            <div class="upload-area" id="uploadArea">
                 <span style="font-size: 48px;">📤</span>
                 <h3 style="margin: 15px 0;">Carregar Ficheiro Excel</h3>
-                <p style="color: #666; margin-bottom: 15px;">Selecione o ficheiro com os dados</p>
-                
                 <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
-                
                 <button class="btn-upload" onclick="document.getElementById('fileInput').click()">
                     Selecionar Ficheiro
                 </button>
-                
                 <div id="fileInfo" class="file-info"></div>
-            </div>
-            
-            <!-- ÁREA DE DEBUG -->
-            <div style="margin-top: 20px; padding: 15px; background: #f1f5f9; border-radius: 6px;">
-                <h4>🔧 Informações de Debug:</h4>
-                <pre id="debugInfo" style="margin-top: 10px; font-size: 12px; max-height: 200px; overflow: auto;"></pre>
             </div>
         </div>
     `;
@@ -99,112 +134,230 @@ function mostrarProdutividade() {
         if (input) {
             input.onchange = handleUpload;
         }
+        
+        // Define datas padrão no filtro personalizado
+        const hoje = new Date();
+        const ontem = new Date(hoje);
+        ontem.setDate(ontem.getDate() - 7);
+        
+        document.getElementById('dataInicio').value = ontem.toISOString().split('T')[0];
+        document.getElementById('dataFim').value = hoje.toISOString().split('T')[0];
+        
+        // Se já há dados carregados, atualiza os filtros
+        if (processor.dados && processor.dados.length > 0) {
+            atualizarFiltroTipologia();
+            aplicarFiltroPeriodo('hoje', document.querySelector('.filtro-btn'));
+        }
     }, 100);
 }
 
-async function handleUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
+// Gera opções de tipologia baseadas nos dados
+function gerarOpcoesTipologia() {
+    if (!processor.dados || processor.dados.length === 0) {
+        return '';
+    }
     
-    document.getElementById('fileInfo').innerHTML = `Carregando: ${file.name}`;
+    const tipologias = new Set();
+    processor.dados.forEach(item => {
+        if (item.tipologia && item.tipologia.trim() !== '') {
+            tipologias.add(item.tipologia.trim());
+        }
+    });
     
-    try {
-        await processor.carregarDados(file);
-        
-        // MOSTRA INFORMAÇÕES DE DEBUG
-        const debugInfo = document.getElementById('debugInfo');
-        
-        // 1. Primeiro registo para ver as colunas
-        const primeiroRegisto = processor.dados[0] || {};
-        const colunas = Object.keys(primeiroRegisto);
-        
-        // 2. Estatísticas
-        const totalRegistos = processor.dados.length;
-        const comTecnico = processor.dados.filter(d => d.tecnico_reparacao).length;
-        const comDia = processor.dados.filter(d => d['Dia Reparação']).length;
-        const tscSouth = processor.dados.filter(d => d.polo === 'TSC SOUTH').length;
-        
-        // 3. Amostra de técnicos encontrados
-        const tecnicos = [...new Set(processor.dados.map(d => d.tecnico_reparacao).filter(Boolean))];
-        
-        debugInfo.innerHTML = `
-📁 Total registos: ${totalRegistos}
-📍 TSC SOUTH: ${tscSouth}
-👤 Com técnico: ${comTecnico}
-📅 Com dia reparação: ${comDia}
-👥 Técnicos encontrados: ${tecnicos.length > 0 ? tecnicos.join(', ') : 'Nenhum'}
+    return Array.from(tipologias).sort().map(tipologia => 
+        `<option value="${tipologia}">${tipologia}</option>`
+    ).join('');
+}
 
-📋 Primeiras 5 colunas do Excel:
-${colunas.slice(0, 10).map(c => `  • "${c}"`).join('\n')}
-
-📄 Primeiro registo (exemplo):
-${JSON.stringify(primeiroRegisto, null, 2).substring(0, 500)}
-        `;
-        
-        document.getElementById('fileInfo').innerHTML = `✓ ${file.name} carregado (${processor.dados.length} registos)`;
-        
-        // Tenta filtrar hoje
-        filtrar('hoje', document.querySelector('.filtro-btn.active'));
-        
-    } catch (error) {
-        document.getElementById('fileInfo').innerHTML = `❌ Erro: ${error.message}`;
-        document.getElementById('debugInfo').innerHTML = `ERRO: ${error.message}\n${error.stack}`;
+function atualizarFiltroTipologia() {
+    const select = document.getElementById('filtroTipologia');
+    if (select) {
+        const options = gerarOpcoesTipologia();
+        select.innerHTML = `<option value="todas">Todas as tipologias</option>${options}`;
     }
 }
 
-function filtrar(periodo, botao) {
-    if (!processor.dados || processor.dados.length === 0) {
-        alert('Carregue um ficheiro primeiro!');
+// Aplica filtro por período predefinido
+function aplicarFiltroPeriodo(periodo, botao) {
+    // Atualiza UI dos botões
+    document.querySelectorAll('.filtro-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    botao.classList.add('active');
+    
+    // Atualiza estado
+    filtroAtual.periodo = periodo;
+    filtroAtual.dataInicio = null;
+    filtroAtual.dataFim = null;
+    
+    // Aplica filtro
+    aplicarFiltros();
+    
+    // Atualiza info
+    const nomesPeriodo = {
+        'hoje': 'Hoje',
+        'ontem': 'Ontem',
+        'semana': 'Últimos 7 dias',
+        'mes': 'Últimos 30 dias',
+        'trimestre': 'Últimos 90 dias'
+    };
+    document.getElementById('infoFiltro').innerHTML = `📍 Mostrando dados do período: <strong>${nomesPeriodo[periodo]}</strong>${filtroAtual.tipologia !== 'todas' ? ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>` : ''}`;
+}
+
+// Aplica filtro personalizado por datas
+function aplicarFiltroPersonalizado() {
+    const dataInicio = document.getElementById('dataInicio').value;
+    const dataFim = document.getElementById('dataFim').value;
+    
+    if (!dataInicio || !dataFim) {
+        alert('Selecione as datas de início e fim');
         return;
     }
     
-    document.querySelectorAll('.filtro-btn').forEach(btn => btn.classList.remove('active'));
-    botao.classList.add('active');
+    // Remove active dos botões de período
+    document.querySelectorAll('.filtro-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
     
-    const dados = processor.filtrarPorPeriodo(periodo);
-    const stats = processor.calcularEstatisticas(dados, periodo);
+    // Atualiza estado
+    filtroAtual.periodo = 'personalizado';
+    filtroAtual.dataInicio = new Date(dataInicio);
+    filtroAtual.dataFim = new Date(dataFim);
+    filtroAtual.dataFim.setHours(23, 59, 59, 999); // Até ao final do dia
     
-    // Atualizar cards
+    // Aplica filtro
+    aplicarFiltros();
+    
+    // Formata datas para exibição
+    const formatarData = (data) => {
+        return data.toLocaleDateString('pt-PT');
+    };
+    
+    document.getElementById('infoFiltro').innerHTML = `📍 Mostrando dados de <strong>${formatarData(filtroAtual.dataInicio)}</strong> até <strong>${formatarData(filtroAtual.dataFim)}</strong>${filtroAtual.tipologia !== 'todas' ? ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>` : ''}`;
+}
+
+// Aplica filtro por tipologia
+function aplicarFiltroTipologia(tipologia) {
+    filtroAtual.tipologia = tipologia;
+    aplicarFiltros();
+    
+    // Atualiza info
+    const infoElement = document.getElementById('infoFiltro');
+    const infoText = infoElement.innerHTML;
+    
+    if (tipologia === 'todas') {
+        infoElement.innerHTML = infoText.replace(/\| Tipologia:.*$/, '');
+    } else {
+        if (infoText.includes('| Tipologia:')) {
+            infoElement.innerHTML = infoText.replace(/\| Tipologia:.*$/, ` | Tipologia: <strong>${tipologia}</strong>`);
+        } else {
+            infoElement.innerHTML += ` | Tipologia: <strong>${tipologia}</strong>`;
+        }
+    }
+}
+
+// Função principal de filtragem
+function aplicarFiltros() {
+    if (!processor.dados || processor.dados.length === 0) return;
+    
+    // Filtra os dados
+    let dadosFiltrados = processor.dados;
+    
+    // Aplica filtro de data
+    if (filtroAtual.periodo === 'personalizado') {
+        dadosFiltrados = dadosFiltrados.filter(item => {
+            const dataItem = processor.getDataReparacao(item);
+            return dataItem && dataItem >= filtroAtual.dataInicio && dataItem <= filtroAtual.dataFim;
+        });
+    } else {
+        dadosFiltrados = processor.filtrarPorPeriodo(filtroAtual.periodo);
+    }
+    
+    // Aplica filtro de tipologia
+    if (filtroAtual.tipologia !== 'todas') {
+        dadosFiltrados = dadosFiltrados.filter(item => 
+            item.tipologia && item.tipologia === filtroAtual.tipologia
+        );
+    }
+    
+    // Calcula estatísticas
+    const stats = processor.calcularEstatisticas(dadosFiltrados, filtroAtual.periodo);
+    
+    // Atualiza cards
     document.getElementById('totalRep').textContent = stats.totalReparados;
     document.getElementById('mediaDia').textContent = stats.mediaDiaria.toFixed(1);
     document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
     document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
     
-    // Atualizar tabela
+    // Atualiza tabela
+    atualizarTabela(stats);
+}
+
+// Atualiza tabela com os dados filtrados
+function atualizarTabela(stats) {
     const tabela = document.getElementById('tabela');
     
     if (stats.totalReparados === 0) {
-        tabela.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 20px;">
-            Nenhum reparado neste período (${periodo})
-        </td></tr>`;
+        tabela.innerHTML = `<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum reparado neste período</td></tr>`;
         return;
     }
     
-    const tecnicos = Object.entries(stats.reparados)
-        .filter(([_, qtd]) => qtd > 0)
-        .sort((a, b) => b[1] - a[1]);
+    const maxQuantidade = Math.max(...Object.values(stats.reparados));
     
-    tabela.innerHTML = tecnicos.map(([tecnico, qtd]) => {
+    const tecnicosOrdenados = Object.entries(stats.reparados)
+        .filter(([_, qtd]) => qtd > 0)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 100);
+    
+    tabela.innerHTML = tecnicosOrdenados.map(([tecnico, qtd]) => {
         const media = (qtd / stats.numeroDias).toFixed(1);
+        const percentual = (qtd / maxQuantidade * 100).toFixed(0);
         return `
             <tr>
-                <td><strong>${tecnico}</strong></td>
-                <td>${qtd}</td>
-                <td>${media}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;"><strong>${tecnico}</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${qtd}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${media}</td>
+                <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">
+                    <div style="background: #e2e8f0; border-radius: 10px; width: 100px; height: 8px;">
+                        <div style="background: linear-gradient(90deg, #2563eb, #7c3aed); width: ${percentual}%; height: 8px; border-radius: 10px;"></div>
+                    </div>
+                </td>
             </tr>
         `;
     }).join('');
+}
+
+// Handle do upload
+async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
     
-    // Atualiza debug com info do filtro
-    const debugInfo = document.getElementById('debugInfo');
-    if (debugInfo) {
-        debugInfo.innerHTML += `\n\n📊 Período: ${periodo}\nRegistos encontrados: ${dados.length}`;
+    const fileInfo = document.getElementById('fileInfo');
+    fileInfo.innerHTML = `📂 A processar ${file.name}...`;
+    
+    try {
+        await processor.carregarDados(file);
+        
+        // Esconde área de upload
+        document.getElementById('uploadArea').style.display = 'none';
+        
+        // Atualiza filtro de tipologia
+        atualizarFiltroTipologia();
+        
+        // Aplica filtro inicial (hoje)
+        aplicarFiltroPeriodo('hoje', document.querySelector('.filtro-btn'));
+        
+        fileInfo.innerHTML = `✅ ${file.name} carregado (${processor.dados.length} registos)`;
+        
+    } catch (error) {
+        fileInfo.innerHTML = `❌ Erro: ${error.message}`;
+        console.error(error);
     }
 }
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard iniciado');
+    console.log('Dashboard iniciado - Versão com filtros avançados');
     
     const btnAbertos = document.getElementById('btnAbertos');
     const btnProd = document.getElementById('btnProdutividade');
