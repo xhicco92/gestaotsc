@@ -1,5 +1,5 @@
 // ============================================
-// DASHBOARD CENTRO TÉCNICO - COM FILTROS AVANÇADOS
+// DASHBOARD CENTRO TÉCNICO - FILTROS REORGANIZADOS
 // ============================================
 
 const processor = new ProdutividadeProcessor();
@@ -12,6 +12,9 @@ let filtroAtual = {
     tipologia: 'todas',
     polo: 'todos'
 };
+
+// Controlo do seletor de datas personalizado
+let dataPickerVisible = false;
 
 function mostrarAbertos() {
     document.getElementById('conteudo').innerHTML = `
@@ -28,51 +31,67 @@ function mostrarProdutividade() {
         <div>
             <h2 style="margin-bottom: 20px;">📊 Produtividade dos Técnicos</h2>
             
-            <!-- FILTROS -->
-            <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
-                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('hoje', this)">Hoje</button>
-                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('ontem', this)">Ontem</button>
-                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('semana', this)">7 dias</button>
-                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('mes', this)">30 dias</button>
-                    <button class="filtro-btn" onclick="aplicarFiltroPeriodo('trimestre', this)">90 dias</button>
-                </div>
-                
-                <!-- FILTRO DE DATA PERSONALIZADA -->
-                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-                    <span style="font-weight: bold; color: #475569;">📅 Período Personalizado:</span>
-                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                        <div>
-                            <label style="font-size: 12px; color: #64748b;">De:</label>
-                            <input type="date" id="dataInicio" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                        </div>
-                        <div>
-                            <label style="font-size: 12px; color: #64748b;">Até:</label>
-                            <input type="date" id="dataFim" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
-                        </div>
-                        <button onclick="aplicarFiltroPersonalizado()" style="background: #2563eb; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
-                            Aplicar
+            <!-- FILTROS - TUDO NA MESMA LINHA -->
+            <div style="background: #f8fafc; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    
+                    <!-- FILTROS DE PERÍODO (esquerda) -->
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('hoje', this)">Hoje</button>
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('ontem', this)">Ontem</button>
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('semana', this)">7 dias</button>
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('mes', this)">30 dias</button>
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('trimestre', this)">90 dias</button>
+                        
+                        <!-- Botão para período personalizado -->
+                        <button onclick="toggleDataPicker()" style="background: white; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 14px;">
+                            <span class="material-icons" style="font-size: 18px;">date_range</span>
+                            Personalizado
                         </button>
+                    </div>
+                    
+                    <!-- FILTROS DE TIPOLOGIA E LOCALIZAÇÃO (direita) -->
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                        <!-- Tipologia -->
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 500; color: #475569; font-size: 14px;">🏷️ Tipologia:</span>
+                            <select id="filtroTipologia" onchange="aplicarFiltroTipologia(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 150px; font-size: 14px;">
+                                <option value="todas">Todas</option>
+                                ${gerarOpcoesTipologia()}
+                            </select>
+                        </div>
+                        
+                        <!-- Localização (Polo) -->
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 500; color: #475569; font-size: 14px;">📍 Localização:</span>
+                            <select id="filtroPolo" onchange="aplicarFiltroPolo(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 130px; font-size: 14px;">
+                                <option value="todos">Todos</option>
+                                <option value="TSC SOUTH">TSC SOUTH</option>
+                                <option value="TSC NORTH">TSC NORTH</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 
-                <!-- FILTRO DE TIPOLOGIA -->
-                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-                    <span style="font-weight: bold; color: #475569;">🏷️ Tipologia:</span>
-                    <select id="filtroTipologia" onchange="aplicarFiltroTipologia(this.value)" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 200px;">
-                        <option value="todas">Todas as tipologias</option>
-                        ${gerarOpcoesTipologia()}
-                    </select>
-                </div>
-                
-                <!-- FILTRO DE LOCALIZAÇÃO (POLO) -->
-                <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap; padding-top: 15px; border-top: 1px solid #e2e8f0;">
-                    <span style="font-weight: bold; color: #475569;">📍 Localização:</span>
-                    <select id="filtroPolo" onchange="aplicarFiltroPolo(this.value)" style="padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 200px;">
-                        <option value="todos">Todos os polos</option>
-                        <option value="TSC SOUTH">TSC SOUTH</option>
-                        <option value="TSC NORTH">TSC NORTH</option>
-                    </select>
+                <!-- SELETOR DE DATAS PERSONALIZADO (expansível) -->
+                <div id="dataPickerContainer" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <span style="font-weight: bold; color: #475569;">📅 Selecionar período:</span>
+                        <div>
+                            <label style="font-size: 12px; color: #64748b; margin-right: 5px;">De:</label>
+                            <input type="date" id="dataInicio" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #64748b; margin-right: 5px;">Até:</label>
+                            <input type="date" id="dataFim" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        </div>
+                        <button onclick="aplicarFiltroPersonalizado()" style="background: #2563eb; color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer;">
+                            Aplicar
+                        </button>
+                        <button onclick="toggleDataPicker()" style="background: transparent; border: 1px solid #94a3b8; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
+                            Cancelar
+                        </button>
+                    </div>
                 </div>
             </div>
             
@@ -101,7 +120,7 @@ function mostrarProdutividade() {
                 📍 Mostrando dados do período: <strong>Hoje</strong>
             </div>
             
-            <!-- TABELA (SEM COLUNA DE POLO) -->
+            <!-- TABELA -->
             <div style="margin: 20px 0;">
                 <h3 style="margin-bottom: 10px;">👥 Reparados por Técnico</h3>
                 <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
@@ -151,8 +170,15 @@ function mostrarProdutividade() {
         const seteDiasAtras = new Date(hoje);
         seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
         
-        document.getElementById('dataInicio').value = seteDiasAtras.toISOString().split('T')[0];
-        document.getElementById('dataFim').value = hoje.toISOString().split('T')[0];
+        const dataInicioInput = document.getElementById('dataInicio');
+        const dataFimInput = document.getElementById('dataFim');
+        
+        if (dataInicioInput) {
+            dataInicioInput.value = seteDiasAtras.toISOString().split('T')[0];
+        }
+        if (dataFimInput) {
+            dataFimInput.value = hoje.toISOString().split('T')[0];
+        }
         
         // Se já há dados carregados, atualiza os filtros
         if (processor.dados && processor.dados.length > 0) {
@@ -160,6 +186,15 @@ function mostrarProdutividade() {
             aplicarFiltroPeriodo('hoje', document.querySelector('.filtro-btn'));
         }
     }, 100);
+}
+
+// Alternar visibilidade do seletor de datas personalizado
+function toggleDataPicker() {
+    const container = document.getElementById('dataPickerContainer');
+    if (container) {
+        dataPickerVisible = !dataPickerVisible;
+        container.style.display = dataPickerVisible ? 'block' : 'none';
+    }
 }
 
 // Gera opções de tipologia baseadas nos dados
@@ -179,7 +214,7 @@ function atualizarFiltroTipologia() {
     const select = document.getElementById('filtroTipologia');
     if (select) {
         const options = gerarOpcoesTipologia();
-        select.innerHTML = `<option value="todas">Todas as tipologias</option>${options}`;
+        select.innerHTML = `<option value="todas">Todas</option>${options}`;
     }
 }
 
@@ -192,6 +227,11 @@ function aplicarFiltroPolo(polo) {
 
 // Aplica filtro por período predefinido
 function aplicarFiltroPeriodo(periodo, botao) {
+    // Esconde o seletor de datas se estiver visível
+    if (dataPickerVisible) {
+        toggleDataPicker();
+    }
+    
     // Atualiza UI dos botões
     document.querySelectorAll('.filtro-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -217,6 +257,9 @@ function aplicarFiltroPersonalizado() {
         alert('Selecione as datas de início e fim');
         return;
     }
+    
+    // Esconde o seletor
+    toggleDataPicker();
     
     // Remove active dos botões de período
     document.querySelectorAll('.filtro-btn').forEach(btn => {
@@ -316,11 +359,11 @@ function aplicarFiltros() {
     document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
     document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
     
-    // Atualiza tabela (versão simples, sem polo)
+    // Atualiza tabela
     atualizarTabela(stats);
 }
 
-// Atualiza tabela com os dados filtrados (versão simples)
+// Atualiza tabela com os dados filtrados
 function atualizarTabela(stats) {
     const tabela = document.getElementById('tabela');
     
@@ -371,8 +414,11 @@ async function handleUpload(e) {
         // Atualiza filtro de tipologia
         atualizarFiltroTipologia();
         
-        // Aplica filtro inicial (hoje)
-        aplicarFiltroPeriodo('hoje', document.querySelector('.filtro-btn'));
+        // Ativa o botão Hoje e aplica filtro
+        const botaoHoje = document.querySelector('.filtro-btn');
+        if (botaoHoje) {
+            aplicarFiltroPeriodo('hoje', botaoHoje);
+        }
         
         fileInfo.innerHTML = `✅ ${file.name} carregado (${processor.dados.length} registos)`;
         
@@ -384,7 +430,7 @@ async function handleUpload(e) {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard iniciado - Versão com filtros avançados');
+    console.log('Dashboard iniciado - Versão com filtros na mesma linha');
     
     const btnAbertos = document.getElementById('btnAbertos');
     const btnProd = document.getElementById('btnProdutividade');
