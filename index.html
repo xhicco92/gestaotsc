@@ -3,36 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Centro Técnico - Painel de Monitorização</title>
-    <link rel="stylesheet" href="styles.css">
-    <!-- Opcional: Material Icons para consistência com o exemplo -->
+    <title>Dashboard Centro Técnico</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+        body { background: #f0f2f5; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .header h1 { color: #333; }
+        .menu { display: flex; gap: 10px; margin-bottom: 20px; }
+        .btn-menu { padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .btn-menu.ativo { background: #2563eb; color: white; }
+        .btn-menu:not(.ativo) { background: white; color: #333; }
+        .conteudo { background: white; border-radius: 8px; padding: 20px; min-height: 400px; }
+        .upload-area { border: 2px dashed #2563eb; border-radius: 8px; padding: 40px; text-align: center; margin: 20px 0; background: #f0f9ff; }
+        .btn-upload { background: #2563eb; color: white; border: none; padding: 12px 30px; border-radius: 6px; font-size: 16px; cursor: pointer; margin: 15px 0; }
+        .filtros { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .filtro-btn { padding: 8px 16px; border: 1px solid #ddd; border-radius: 4px; background: white; cursor: pointer; }
+        .filtro-btn.active { background: #2563eb; color: white; border-color: #2563eb; }
+        .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
+        .card { background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .card small { color: #64748b; }
+        .card strong { display: block; font-size: 24px; margin-top: 5px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f1f5f9; padding: 10px; text-align: left; }
+        td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+        .file-info { margin-top: 10px; color: #059669; font-weight: bold; }
+    </style>
 </head>
 <body>
-    <div class="painel">
-        <!-- Cabeçalho com data -->
-        <div class="cabecalho">
-            <h1>🔧 Centro Técnico - Painel de Monitorização</h1>
-            <div class="data" id="dataAtual"></div>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Centro Técnico - Dashboard</h1>
+        </div>
+        
+        <div class="menu">
+            <button id="btnAbertos" class="btn-menu ativo">📋 Abertos</button>
+            <button id="btnProdutividade" class="btn-menu">⚡ Produtividades</button>
         </div>
 
-        <!-- Menu com os dois botões principais -->
-        <div class="menu-principal">
-            <button id="btnAbertos" class="botao-menu ativo">
-                <span class="material-icons">folder_open</span> Abertos Área Técnica
-            </button>
-            <button id="btnProdutividade" class="botao-menu">
-                <span class="material-icons">timeline</span> Produtividades
-            </button>
-        </div>
-
-        <!-- Área de conteúdo dinâmico -->
         <div id="conteudo" class="conteudo">
-            <!-- O conteúdo será carregado aqui pelo JavaScript -->
+            <!-- Conteúdo carregado via JavaScript -->
         </div>
     </div>
 
+    <script src="produtividade-processor.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
