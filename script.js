@@ -45,7 +45,7 @@ function mostrarProdutividade() {
                         
                         <!-- Botão para período personalizado -->
                         <button onclick="toggleDataPicker()" style="background: white; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 14px;">
-                            <span class="material-icons" style="font-size: 18px;">date_range</span>
+                            <span style="font-size: 16px;">📅</span>
                             Personalizado
                         </button>
                     </div>
@@ -415,9 +415,9 @@ async function handleUpload(e) {
         atualizarFiltroTipologia();
         
         // Ativa o botão Hoje e aplica filtro
-        const botaoHoje = document.querySelector('.filtro-btn');
-        if (botaoHoje) {
-            aplicarFiltroPeriodo('hoje', botaoHoje);
+        const botoes = document.querySelectorAll('.filtro-btn');
+        if (botoes.length > 0) {
+            aplicarFiltroPeriodo('hoje', botoes[0]);
         }
         
         fileInfo.innerHTML = `✅ ${file.name} carregado (${processor.dados.length} registos)`;
@@ -435,17 +435,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnAbertos = document.getElementById('btnAbertos');
     const btnProd = document.getElementById('btnProdutividade');
     
-    btnAbertos.addEventListener('click', () => {
-        btnAbertos.classList.add('ativo');
-        btnProd.classList.remove('ativo');
-        mostrarAbertos();
-    });
+    if (btnAbertos) {
+        btnAbertos.addEventListener('click', () => {
+            btnAbertos.classList.add('ativo');
+            btnProd.classList.remove('ativo');
+            mostrarAbertos();
+        });
+    }
     
-    btnProd.addEventListener('click', () => {
-        btnProd.classList.add('ativo');
-        btnAbertos.classList.remove('ativo');
-        mostrarProdutividade();
-    });
+    if (btnProd) {
+        btnProd.addEventListener('click', () => {
+            btnProd.classList.add('ativo');
+            btnAbertos.classList.remove('ativo');
+            mostrarProdutividade();
+        });
+    }
     
     mostrarAbertos();
 });
