@@ -1,5 +1,5 @@
 // ============================================
-// DASHBOARD CENTRO TÉCNICO - SIMPLIFICADO
+// DASHBOARD CENTRO TÉCNICO - VERSÃO DEBUG
 // ============================================
 
 const processor = new ProdutividadeProcessor();
@@ -83,22 +83,25 @@ function mostrarProdutividade() {
                 
                 <div id="fileInfo" class="file-info"></div>
             </div>
+            
+            <!-- ÁREA DE DEBUG -->
+            <div style="margin-top: 20px; padding: 15px; background: #f1f5f9; border-radius: 6px;">
+                <h4>🔧 Informações de Debug:</h4>
+                <pre id="debugInfo" style="margin-top: 10px; font-size: 12px; max-height: 200px; overflow: auto;"></pre>
+            </div>
         </div>
     `;
     
     document.getElementById('conteudo').innerHTML = html;
     
-    // Configurar upload
     setTimeout(() => {
         const input = document.getElementById('fileInput');
         if (input) {
             input.onchange = handleUpload;
-            console.log('Upload configurado');
         }
     }, 100);
 }
 
-// Handle do upload
 async function handleUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -107,25 +110,57 @@ async function handleUpload(e) {
     
     try {
         await processor.carregarDados(file);
+        
+        // MOSTRA INFORMAÇÕES DE DEBUG
+        const debugInfo = document.getElementById('debugInfo');
+        
+        // 1. Primeiro registo para ver as colunas
+        const primeiroRegisto = processor.dados[0] || {};
+        const colunas = Object.keys(primeiroRegisto);
+        
+        // 2. Estatísticas
+        const totalRegistos = processor.dados.length;
+        const comTecnico = processor.dados.filter(d => d.tecnico_reparacao).length;
+        const comDia = processor.dados.filter(d => d['Dia Reparação']).length;
+        const tscSouth = processor.dados.filter(d => d.polo === 'TSC SOUTH').length;
+        
+        // 3. Amostra de técnicos encontrados
+        const tecnicos = [...new Set(processor.dados.map(d => d.tecnico_reparacao).filter(Boolean))];
+        
+        debugInfo.innerHTML = `
+📁 Total registos: ${totalRegistos}
+📍 TSC SOUTH: ${tscSouth}
+👤 Com técnico: ${comTecnico}
+📅 Com dia reparação: ${comDia}
+👥 Técnicos encontrados: ${tecnicos.length > 0 ? tecnicos.join(', ') : 'Nenhum'}
+
+📋 Primeiras 5 colunas do Excel:
+${colunas.slice(0, 10).map(c => `  • "${c}"`).join('\n')}
+
+📄 Primeiro registo (exemplo):
+${JSON.stringify(primeiroRegisto, null, 2).substring(0, 500)}
+        `;
+        
         document.getElementById('fileInfo').innerHTML = `✓ ${file.name} carregado (${processor.dados.length} registos)`;
+        
+        // Tenta filtrar hoje
         filtrar('hoje', document.querySelector('.filtro-btn.active'));
+        
     } catch (error) {
         document.getElementById('fileInfo').innerHTML = `❌ Erro: ${error.message}`;
+        document.getElementById('debugInfo').innerHTML = `ERRO: ${error.message}\n${error.stack}`;
     }
 }
 
-// Filtrar dados
 function filtrar(periodo, botao) {
     if (!processor.dados || processor.dados.length === 0) {
         alert('Carregue um ficheiro primeiro!');
         return;
     }
     
-    // Atualizar botões
     document.querySelectorAll('.filtro-btn').forEach(btn => btn.classList.remove('active'));
     botao.classList.add('active');
     
-    // Processar dados
     const dados = processor.filtrarPorPeriodo(periodo);
     const stats = processor.calcularEstatisticas(dados, periodo);
     
@@ -139,7 +174,9 @@ function filtrar(periodo, botao) {
     const tabela = document.getElementById('tabela');
     
     if (stats.totalReparados === 0) {
-        tabela.innerHTML = '<tr><td colspan="3" style="text-align: center; padding: 20px;">Nenhum reparado neste período</td></tr>';
+        tabela.innerHTML = `<tr><td colspan="3" style="text-align: center; padding: 20px;">
+            Nenhum reparado neste período (${periodo})
+        </td></tr>`;
         return;
     }
     
@@ -157,6 +194,12 @@ function filtrar(periodo, botao) {
             </tr>
         `;
     }).join('');
+    
+    // Atualiza debug com info do filtro
+    const debugInfo = document.getElementById('debugInfo');
+    if (debugInfo) {
+        debugInfo.innerHTML += `\n\n📊 Período: ${periodo}\nRegistos encontrados: ${dados.length}`;
+    }
 }
 
 // Inicialização
@@ -178,6 +221,5 @@ document.addEventListener('DOMContentLoaded', () => {
         mostrarProdutividade();
     });
     
-    // Começar com abertos
     mostrarAbertos();
 });
