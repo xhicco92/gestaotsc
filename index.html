@@ -3,88 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Centro Técnico</title>
+    <title>Centro Técnico - Painel de Monitorização</title>
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Opcional: Material Icons para consistência com o exemplo -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 </head>
 <body>
-    <div class="dashboard">
-        <!-- Header com saudação -->
-        <header class="header">
-            <div class="header-content">
-                <div class="logo-area">
-                    <i class="fas fa-tools"></i>
-                    <h1>Centro Técnico</h1>
-                </div>
-                <div class="user-area">
-                    <span class="user-name">Técnico Responsável</span>
-                    <i class="fas fa-user-circle user-avatar"></i>
-                </div>
-            </div>
-        </header>
-
-        <!-- Cards de métricas rápidas -->
-        <div class="metricas-rapidas">
-            <div class="metrica-card">
-                <div class="metrica-icon" style="background: #e3f2fd; color: #1976d2;">
-                    <i class="fas fa-clipboard-list"></i>
-                </div>
-                <div class="metrica-info">
-                    <span class="metrica-label">OS em Aberto</span>
-                    <span class="metrica-valor">24</span>
-                </div>
-            </div>
-            <div class="metrica-card">
-                <div class="metrica-icon" style="background: #e8f5e9; color: #388e3c;">
-                    <i class="fas fa-check-circle"></i>
-                </div>
-                <div class="metrica-info">
-                    <span class="metrica-label">Concluídas Hoje</span>
-                    <span class="metrica-valor">8</span>
-                </div>
-            </div>
-            <div class="metrica-card">
-                <div class="metrica-icon" style="background: #fff3e0; color: #f57c00;">
-                    <i class="fas fa-clock"></i>
-                </div>
-                <div class="metrica-info">
-                    <span class="metrica-label">Em Andamento</span>
-                    <span class="metrica-valor">12</span>
-                </div>
-            </div>
-            <div class="metrica-card">
-                <div class="metrica-icon" style="background: #fce4ec; color: #c2185b;">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="metrica-info">
-                    <span class="metrica-label">Técnicos Ativos</span>
-                    <span class="metrica-valor">6</span>
-                </div>
-            </div>
+    <div class="painel">
+        <!-- Cabeçalho com data -->
+        <div class="cabecalho">
+            <h1>🔧 Centro Técnico - Painel de Monitorização</h1>
+            <div class="data" id="dataAtual"></div>
         </div>
 
-        <!-- Menu principal com botões -->
+        <!-- Menu com os dois botões principais -->
         <div class="menu-principal">
-            <button class="btn-menu btn-abertos" onclick="mostrarAbertos()">
-                <i class="fas fa-folder-open"></i>
-                <span>Abertos</span>
-                <small>Área Técnica</small>
+            <button id="btnAbertos" class="botao-menu ativo">
+                <span class="material-icons">folder_open</span> Abertos Área Técnica
             </button>
-            <button class="btn-menu btn-produtividade" onclick="mostrarProdutividade()">
-                <i class="fas fa-chart-line"></i>
-                <span>Produtividade</span>
-                <small>Desempenho da equipe</small>
+            <button id="btnProdutividade" class="botao-menu">
+                <span class="material-icons">timeline</span> Produtividades
             </button>
         </div>
 
-        <!-- Área de conteúdo principal -->
-        <div class="content-wrapper" id="conteudo">
-            <div class="welcome-message">
-                <i class="fas fa-hand-peace"></i>
-                <h2>Bem-vindo ao Dashboard</h2>
-                <p>Selecione uma opção para visualizar as informações</p>
-            </div>
+        <!-- Área de conteúdo dinâmico -->
+        <div id="conteudo" class="conteudo">
+            <!-- O conteúdo será carregado aqui pelo JavaScript -->
         </div>
     </div>
 
