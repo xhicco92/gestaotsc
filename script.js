@@ -18,7 +18,8 @@ let filtroAtual = {
 // Estado dos filtros - ABERTOS
 let filtroAbertos = {
     tipologia: 'todas',
-    mobileTipo: 'todos'
+    mobileTipo: 'todos',
+    marca: 'todas'  // NOVO: filtro de marca
 };
 
 // Cache para os dados dos cards
@@ -83,6 +84,7 @@ const ordemCheckpoints = [
     'Controlo de Qualidade', 'Check-Out', 'Debit'
 ];
 
+// Função para abrir modal de detalhe por garantia (CORRIGIDA - usa os dados específicos)
 function abrirDetalheGarantia(tipologia, garantia, garantiaKey) {
     const dadosGarantia = dadosGarantiaCache[garantiaKey];
     if (!dadosGarantia || dadosGarantia.length === 0) {
@@ -90,6 +92,7 @@ function abrirDetalheGarantia(tipologia, garantia, garantiaKey) {
         return;
     }
     
+    // Agrupa equipamentos por checkpoint
     const checkpointMap = new Map();
     ordemCheckpoints.forEach(cp => {
         checkpointMap.set(cp, { quantidade: 0, somaTAT: 0, countTAT: 0, pendentes: { sim: 0, nao: 0, somaTATSim: 0, countTATSim: 0, somaTATNao: 0, countTATNao: 0 } });
@@ -180,7 +183,7 @@ function mostrarProdutividade() {
             </div>
             <div id="infoFiltro" style="background: #e0f2fe; padding: 10px; border-radius: 4px; margin-bottom: 15px;">📍 Período: <strong>Hoje</strong></div>
             <div style="max-height: 400px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
-                <table style="width: 100%;"><thead style="background: #f1f5f9;"><tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th></tr></thead><tbody id="tabela"><tr><td colspan="4" style="text-align:center;padding:30px;">Carregue um ficheiro para começar</td></tr></tbody></table>
+                <table style="width: 100%;"><thead style="background: #f1f5f9;"><tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th> </thead><tbody id="tabela"> <td colspan="4" style="text-align:center;padding:30px;">Carregue um ficheiro para começar</td> </tbody> </table>
             </div>
             <div class="upload-area" id="uploadArea"><input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;"><button class="btn-upload" onclick="document.getElementById('fileInput').click()">📂 Selecionar Ficheiro Excel</button><div id="fileInfo" class="file-info"></div></div>
         </div>
@@ -246,20 +249,39 @@ function aplicarFiltros() {
     document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
     document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
     const tabela = document.getElementById('tabela');
-    if (!stats.totalReparados) { tabela.innerHTML = '<tr><td colspan="4" style="text-align:center;">Nenhum reparado neste período</td></tr>'; return; }
+    if (!stats.totalReparados) { tabela.innerHTML = ' <td colspan="4" style="text-align:center;">Nenhum reparado neste período</td> '; return; }
     const maxQ = Math.max(...Object.values(stats.reparados)), dias = stats.numeroDias;
     tabela.innerHTML = Object.entries(stats.reparados).filter(([_,q])=>q>0).sort((a,b)=>b[1]-a[1]).map(([t,q])=>`<tr><td style="padding:8px;"><a href="javascript:void(0)" onclick="abrirDetalheTecnico('${t.replace(/'/g,"\\'")}')" style="color:#2563eb;text-decoration:none;">${t}</a></td><td style="text-align:center;">${q}</td><td style="text-align:center;">${(q/dias).toFixed(1)}</td><td><div style="background:#e2e8f0;border-radius:10px;width:100px;height:8px;"><div style="background:#2563eb;width:${(q/maxQ*100)}%;height:8px;border-radius:10px;"></div></div></td></tr>`).join('');
 }
 function atualizarFiltroTipologia() { const sel = document.getElementById('filtroTipologia'); if (sel && processor.dados) sel.innerHTML = `<option value="todas">Todas</option>${processor.getTipologias().map(t=>`<option value="${t}">${t}</option>`).join('')}`; }
 async function handleUpload(e) { const file = e.target.files[0]; if (!file) return; const info = document.getElementById('fileInfo'); info.innerHTML = '📂 A processar...'; try { await processor.carregarDados(file); document.getElementById('uploadArea').style.display = 'none'; atualizarFiltroTipologia(); const btn = document.querySelector('.filtro-btn'); if (btn) aplicarFiltroPeriodo('hoje', btn); info.innerHTML = `✅ ${file.name} carregado (${processor.dados.length} registos)`; } catch(e) { info.innerHTML = `❌ Erro: ${e.message}`; } }
 function abrirDetalheTecnico(tecnico) { if (!dadosPeriodoAtual.length) return; const dados = dadosPeriodoAtual.filter(i => (i.tecnico_reparacao || i.Tecnico) === tecnico); const dias = {}; dados.forEach(i => { const d = processor.getDataReparacao(i); if(d) dias[d.toLocaleDateString('pt-PT')] = (dias[d.toLocaleDateString('pt-PT')] || 0) + 1; }); const ordenado = Object.keys(dias).sort((a,b)=>{const [da,ma,aa]=a.split('/'),[db,mb,ab]=b.split('/'); if(aa!==ab)return aa-ab; if(ma!==mb)return ma-mb; return da-db;}); const maxV = Math.max(...Object.values(dias),1); const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;'; modal.innerHTML = `<div style="background:white;border-radius:12px;width:90%;max-width:500px;max-height:80vh;overflow:auto;"><div style="padding:20px;border-bottom:1px solid #e2e8f0;"><h2>👤 ${tecnico}</h2><p>Total: <strong>${dados.length}</strong></p></div><div style="padding:20px;"><div style="display:flex;gap:8px;align-items:flex-end;min-height:150px;">${ordenado.map(d=>`<div style="flex:1;text-align:center;"><div style="background:#2563eb;height:${(dias[d]/maxV)*120}px;border-radius:4px 4px 0 0;"></div><span style="font-size:10px;">${d}</span><div>${dias[d]}</div></div>`).join('')}</div></div><div style="padding:20px;border-top:1px solid #e2e8f0;text-align:right;"><button onclick="this.closest(\'div[style*="position:fixed"]\').remove()" style="background:#f1f5f9;border:none;padding:8px 20px;border-radius:6px;">Fechar</button></div></div>`; document.body.appendChild(modal); }
-async function exportarRelatorioPDF() { if (!processor.dados || !processor.dados.length) { alert('Carregue um ficheiro'); return; } const loading = document.createElement('div'); loading.style.cssText = 'position:fixed;top:20px;right:20px;background:#2563eb;color:white;padding:12px;border-radius:8px;z-index:1001;'; loading.innerHTML = '📄 Gerando...'; document.body.appendChild(loading); const stats = processor.calcularEstatisticas(dadosPeriodoAtual, filtroAtual.periodo); const tecnicos = Object.entries(stats.reparados).filter(([_,q])=>q>0).sort((a,b)=>b[1]-a[1]); const periodo = filtroAtual.periodo === 'personalizado' ? `${filtroAtual.dataInicio.toLocaleDateString('pt-PT')} a ${filtroAtual.dataFim.toLocaleDateString('pt-PT')}` : ({hoje:'Hoje',ontem:'Ontem',semana:'Últimos 7 dias',mes:'Últimos 30 dias',trimestre:'Últimos 90 dias'}[filtroAtual.periodo]); const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Produtividade</title><style>body{font-family:Arial;padding:40px;}</style></head><body><h1 style="text-align:center;">📊 Relatório de Produtividade</h1><p style="text-align:center;">Gerado em ${new Date().toLocaleDateString('pt-PT')}</p><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:20px 0;"><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Total Reparados</small><div style="font-size:28px;">${stats.totalReparados}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Média Diária</small><div style="font-size:28px;">${stats.mediaDiaria.toFixed(1)}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Técnicos Ativos</small><div style="font-size:28px;">${stats.tecnicosAtivos}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Média/Técnico</small><div style="font-size:28px;">${stats.mediaPorTecnico.toFixed(1)}</div></div></div><p><strong>Período:</strong> ${periodo}</p><table border="1" cellpadding="8" style="width:100%;border-collapse:collapse;"><tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th></tr>${tecnicos.map(([t,q])=>`<tr><td>${t}</td><td>${q}</td><td>${(q/stats.numeroDias).toFixed(1)}</td><td>${((q/stats.totalReparados)*100).toFixed(1)}%</td></tr>`).join('')}</table></body></html>`; const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:absolute;width:0;height:0;'; document.body.appendChild(iframe); const doc = iframe.contentWindow.document; doc.open(); doc.write(html); doc.close(); iframe.contentWindow.onload = () => { iframe.contentWindow.print(); setTimeout(()=>document.body.removeChild(iframe),1000); }; loading.remove(); }
+async function exportarRelatorioPDF() { if (!processor.dados || !processor.dados.length) { alert('Carregue um ficheiro'); return; } const loading = document.createElement('div'); loading.style.cssText = 'position:fixed;top:20px;right:20px;background:#2563eb;color:white;padding:12px;border-radius:8px;z-index:1001;'; loading.innerHTML = '📄 Gerando...'; document.body.appendChild(loading); const stats = processor.calcularEstatisticas(dadosPeriodoAtual, filtroAtual.periodo); const tecnicos = Object.entries(stats.reparados).filter(([_,q])=>q>0).sort((a,b)=>b[1]-a[1]); const periodo = filtroAtual.periodo === 'personalizado' ? `${filtroAtual.dataInicio.toLocaleDateString('pt-PT')} a ${filtroAtual.dataFim.toLocaleDateString('pt-PT')}` : ({hoje:'Hoje',ontem:'Ontem',semana:'Últimos 7 dias',mes:'Últimos 30 dias',trimestre:'Últimos 90 dias'}[filtroAtual.periodo]); const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Produtividade</title><style>body{font-family:Arial;padding:40px;}</style></head><body><h1 style="text-align:center;">📊 Relatório de Produtividade</h1><p style="text-align:center;">Gerado em ${new Date().toLocaleDateString('pt-PT')}</p><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:20px 0;"><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Total Reparados</small><div style="font-size:28px;">${stats.totalReparados}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Média Diária</small><div style="font-size:28px;">${stats.mediaDiaria.toFixed(1)}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Técnicos Ativos</small><div style="font-size:28px;">${stats.tecnicosAtivos}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Média/Técnico</small><div style="font-size:28px;">${stats.mediaPorTecnico.toFixed(1)}</div></div></div><p><strong>Período:</strong> ${periodo}</p><table border="1" cellpadding="8" style="width:100%;border-collapse:collapse;"><tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th></tr>${tecnicos.map(([t,q])=>`<tr><td>${t}</td><td>${q}</td><td>${(q/stats.numeroDias).toFixed(1)}</td><td>${((q/stats.totalReparados)*100).toFixed(1)}%</td></tr>`).join('')}</table></body></html>`;
+    const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:absolute;width:0;height:0;'; document.body.appendChild(iframe);
+    const doc = iframe.contentWindow.document; doc.open(); doc.write(html); doc.close();
+    iframe.contentWindow.onload = () => { iframe.contentWindow.print(); setTimeout(()=>document.body.removeChild(iframe),1000); };
+    loading.remove();
+}
 
 // ============================================
-// ABA ABERTOS
+// ABA ABERTOS (COM FILTRO DE MARCA)
 // ============================================
 
 function mostrarAbertos() {
+    // Obter marcas únicas dos dados
+    let marcasUnicas = [];
+    if (abertosProcessor.dados && abertosProcessor.dados.length) {
+        const marcasSet = new Set();
+        abertosProcessor.dados.forEach(item => {
+            if (item.marca && item.marca.trim() !== '') {
+                marcasSet.add(item.marca);
+            }
+        });
+        marcasUnicas = Array.from(marcasSet).sort();
+    }
+    
+    const marcasOptions = marcasUnicas.map(m => `<option value="${m}">${m}</option>`).join('');
+    
     const html = `
         <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -270,6 +292,7 @@ function mostrarAbertos() {
                 <div style="display: flex; gap: 15px; flex-wrap: wrap;">
                     <div><span>🏷️ Tipologia:</span> <select id="filtroTipologiaAbertos" onchange="onTipologiaAbertosChange(this.value)"><option value="todas">Todas</option>${abertosProcessor.dados && abertosProcessor.dados.length ? abertosProcessor.getTipologiasAbertos().map(t=>`<option value="${t}">${t}</option>`).join('') : ''}</select></div>
                     <div id="mobileSubAbertos" style="display: none;"><span>📱 Mobile:</span> <select id="mobileTipoAbertos" onchange="aplicarFiltroMobileAbertos(this.value)"><option value="todos">Todos</option><option value="cliente">Cliente</option><option value="dg">D&G</option></select></div>
+                    <div><span>🏷️ Marca:</span> <select id="filtroMarcaAbertos" onchange="aplicarFiltroMarcaAbertos(this.value)"><option value="todas">Todas as marcas</option>${marcasOptions}</select></div>
                 </div>
             </div>
             <div class="cards">
@@ -297,21 +320,35 @@ function onTipologiaAbertosChange(tipologia) {
     if (filtroAbertos.tipologia !== 'todas') {
         let txt = `📍 Tipologia: <strong>${filtroAbertos.tipologia}</strong>`;
         if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') txt += ` <span style="background:#2563eb20;padding:2px 6px;border-radius:12px;">${filtroAbertos.mobileTipo === 'cliente' ? 'Cliente' : 'D&G'}</span>`;
+        if (filtroAbertos.marca !== 'todas') txt += ` | Marca: <strong>${filtroAbertos.marca}</strong>`;
         info.innerHTML = txt;
-    } else info.innerHTML = '📍 Mostrando todas as tipologias';
+    } else {
+        let txt = '📍 Mostrando todas as tipologias';
+        if (filtroAbertos.marca !== 'todas') txt = `📍 Marca: <strong>${filtroAbertos.marca}</strong>`;
+        info.innerHTML = txt;
+    }
 }
 
 function aplicarFiltroMobileAbertos(tipo) { filtroAbertos.mobileTipo = tipo; atualizarCardsAbertos(); onTipologiaAbertosChange(filtroAbertos.tipologia); }
+
+function aplicarFiltroMarcaAbertos(marca) { filtroAbertos.marca = marca; atualizarCardsAbertos(); onTipologiaAbertosChange(filtroAbertos.tipologia); }
 
 function atualizarCardsAbertos() {
     if (!abertosProcessor.dados || !abertosProcessor.dados.length) return;
     
     let dados = abertosProcessor.dados;
+    
+    // Aplica filtro de tipologia
     if (filtroAbertos.tipologia !== 'todas') {
         dados = dados.filter(i => i.tipologia === filtroAbertos.tipologia);
         if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
             dados = dados.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
         }
+    }
+    
+    // Aplica filtro de marca
+    if (filtroAbertos.marca !== 'todas') {
+        dados = dados.filter(i => i.marca === filtroAbertos.marca);
     }
     
     function calcTAT(item) {
@@ -340,7 +377,7 @@ function atualizarCardsAbertos() {
     document.getElementById('tatIntervencaoTecnica').innerHTML = `TAT: ${cntTI>0?(somaTI/cntTI).toFixed(1):'N/A'} dias`;
     document.getElementById('tatTotal').textContent = cntTT>0?(somaTT/cntTT).toFixed(1)+' dias':'N/A';
     
-    // Cards por tipologia
+    // Cards por tipologia - agrupa por garantia para o modal
     const garantiasMap = new Map();
     dados.forEach(item => {
         const tipoGar = normalizarGarantia(item.tipo_garantia || 'Não definido');
@@ -352,6 +389,7 @@ function atualizarCardsAbertos() {
         if(tat){ g.somaTAT += tat; g.cntTAT++; }
     });
     
+    // Guarda no cache com chave = garantia
     dadosGarantiaCache = {};
     garantiasMap.forEach((v, k) => { dadosGarantiaCache[k] = v.itens; });
     
@@ -374,14 +412,23 @@ function atualizarCardsAbertos() {
         else if (tip === 'Mobile D&G') dadosTip = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia === 'Seguro D&G');
         else dadosTip = abertosProcessor.dados.filter(i => i.tipologia === tip);
         
-        if (filtroAbertos.tipologia !== 'todas' && filtroAbertos.tipologia !== 'Mobile') dadosTip = dadosTip.filter(i => i.tipologia === filtroAbertos.tipologia);
-        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') dadosTip = dadosTip.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
+        // Aplica filtros
+        if (filtroAbertos.tipologia !== 'todas' && filtroAbertos.tipologia !== 'Mobile') {
+            dadosTip = dadosTip.filter(i => i.tipologia === filtroAbertos.tipologia);
+        }
+        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
+            dadosTip = dadosTip.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
+        }
+        if (filtroAbertos.marca !== 'todas') {
+            dadosTip = dadosTip.filter(i => i.marca === filtroAbertos.marca);
+        }
         
         const totalTip = dadosTip.length;
         let somaTTip = 0, cntTTip = 0;
         dadosTip.forEach(i => { const t = calcTAT(i); if(t){ somaTTip += t; cntTTip++; } });
         const mediaTip = cntTTip>0?(somaTTip/cntTTip).toFixed(1):'N/A';
         
+        // Agrupa por garantia para esta tipologia
         const garantiasTip = new Map();
         dadosTip.forEach(item => {
             const g = normalizarGarantia(item.tipo_garantia || 'Não definido');
@@ -394,6 +441,7 @@ function atualizarCardsAbertos() {
         
         const garantiasHTML = Array.from(garantiasTip.entries()).map(([nome, g]) => {
             const media = g.cntTAT>0?(g.somaTAT/g.cntTAT).toFixed(1):'N/A';
+            // Usa a chave correta para o cache (nome da garantia)
             return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0;cursor:pointer;" onclick="abrirDetalheGarantia('${tip}', '${nome}', '${nome}')"><span><strong>${nome}</strong></span><div style="text-align:right;"><div>${g.qtd} equip.</div><div style="font-size:12px;">TAT: ${media} dias</div></div></div>`;
         }).join('');
         
@@ -409,8 +457,20 @@ async function handleUploadAbertos(e) {
     try {
         await abertosProcessor.carregarDados(file);
         document.getElementById('uploadAreaAbertos').style.display = 'none';
-        const sel = document.getElementById('filtroTipologiaAbertos');
-        if (sel) sel.innerHTML = `<option value="todas">Todas</option>${abertosProcessor.getTipologiasAbertos().map(t=>`<option value="${t}">${t}</option>`).join('')}`;
+        
+        // Atualizar filtro de tipologia
+        const selTipologia = document.getElementById('filtroTipologiaAbertos');
+        if (selTipologia) selTipologia.innerHTML = `<option value="todas">Todas</option>${abertosProcessor.getTipologiasAbertos().map(t=>`<option value="${t}">${t}</option>`).join('')}`;
+        
+        // Atualizar filtro de marcas
+        const marcasSet = new Set();
+        abertosProcessor.dados.forEach(item => {
+            if (item.marca && item.marca.trim() !== '') marcasSet.add(item.marca);
+        });
+        const marcasOptions = Array.from(marcasSet).sort().map(m => `<option value="${m}">${m}</option>`).join('');
+        const selMarca = document.getElementById('filtroMarcaAbertos');
+        if (selMarca) selMarca.innerHTML = `<option value="todas">Todas as marcas</option>${marcasOptions}`;
+        
         atualizarCardsAbertos();
         info.innerHTML = `✅ ${file.name} carregado (${abertosProcessor.dados.length} registos)`;
     } catch(e) { info.innerHTML = `❌ Erro: ${e.message}`; }
@@ -425,6 +485,7 @@ async function exportarAbertosPDF() {
         dados = dados.filter(i => i.tipologia === filtroAbertos.tipologia);
         if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') dados = dados.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
     }
+    if (filtroAbertos.marca !== 'todas') dados = dados.filter(i => i.marca === filtroAbertos.marca);
     
     function calcTATpdf(i) {
         if (i.checkpoint_atual && i.checkpoint_atual.toString().toLowerCase() === 'debit') return null;
@@ -457,6 +518,8 @@ async function exportarAbertosPDF() {
         if (tip === 'Mobile Cliente') dt = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia !== 'Seguro D&G');
         else if (tip === 'Mobile D&G') dt = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia === 'Seguro D&G');
         else dt = abertosProcessor.dados.filter(i => i.tipologia === tip);
+        
+        if (filtroAbertos.marca !== 'todas') dt = dt.filter(i => i.marca === filtroAbertos.marca);
         
         const gMap = new Map();
         let sTip=0,cTip=0;
