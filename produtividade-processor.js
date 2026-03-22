@@ -18,14 +18,12 @@ class ProdutividadeProcessor {
                 try {
                     const data = e.target.result;
                     
-                    // Mostra progresso inicial
                     if (onProgress) onProgress(10, 'A ler ficheiro...');
                     
-                    // Usa stream processing para ficheiros grandes
                     const workbook = XLSX.read(data, { 
                         type: 'binary',
-                        cellDates: true, // Preserva datas
-                        dense: false // Não usar modo denso para poupar memória
+                        cellDates: true,
+                        dense: false
                     });
                     
                     if (onProgress) onProgress(30, 'Ficheiro lido, a processar...');
@@ -33,38 +31,33 @@ class ProdutividadeProcessor {
                     const firstSheet = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheet];
                     
-                    // Converte para JSON com opções de otimização
                     this.dados = XLSX.utils.sheet_to_json(worksheet, {
-                        header: 1, // Primeiro lê como array para ser mais rápido
-                        defval: '', // Valor default para células vazias
-                        blankrows: false // Ignora linhas em branco
+                        header: 1,
+                        defval: '',
+                        blankrows: false
                     });
                     
                     if (onProgress) onProgress(60, 'Dados convertidos, a processar linhas...');
                     
-                    // Pega o cabeçalho (primeira linha)
                     const headers = this.dados[0] || [];
                     
-                    // Converte para objetos (apenas linhas com dados)
                     const dadosObj = [];
                     for (let i = 1; i < this.dados.length; i++) {
                         const linha = this.dados[i];
                         if (!linha || linha.length === 0) continue;
                         
-                        // Verifica se a linha tem algum valor
                         const temDados = linha.some(cell => cell !== undefined && cell !== null && cell !== '');
                         if (!temDados) continue;
                         
                         const obj = {};
                         headers.forEach((header, index) => {
-                            if (header) { // Só cria propriedade se header existir
+                            if (header) {
                                 obj[header] = linha[index];
                             }
                         });
                         
                         dadosObj.push(obj);
                         
-                        // Atualiza progresso a cada 1000 linhas
                         if (i % 1000 === 0 && onProgress) {
                             const percent = 60 + Math.floor((i / this.dados.length) * 30);
                             onProgress(percent, `A processar linha ${i} de ${this.dados.length}...`);
@@ -73,7 +66,18 @@ class ProdutividadeProcessor {
                     
                     this.dados = dadosObj;
                     
-                    if (onProgress) onProgress(90, 'A extrair técnicos...');
+                    if (onProgress) onProgress(90, 'A filtrar dados...');
+                    
+                    // APLICA FILTRO: Exclui registos com "Orçamento Rejeitado"
+                    const totalAntes = this.dados.length;
+                    this.dados = this.dados.filter(item => {
+                        const resultadoOrcamento = item.resultado_orcamento || '';
+                        // Exclui se for "Orçamento Rejeitado" (case insensitive)
+                        return resultadoOrcamento !== 'Orçamento Rejeitado';
+                    });
+                    
+                    console.log(`Registos removidos por "Orçamento Rejeitado": ${totalAntes - this.dados.length}`);
+                    console.log(`Registos mantidos: ${this.dados.length}`);
                     
                     // Extrai técnicos de forma otimizada
                     const tecnicosSet = new Set();
@@ -211,7 +215,6 @@ class ProdutividadeProcessor {
     getDataReparacao(item) {
         // Tenta diferentes formatos de data
         if (item['Dia Reparação'] && item['Mês Reparação'] && item['Ano Reparação']) {
-            // Valida se os valores existem
             const dia = parseInt(item['Dia Reparação']);
             const mes = parseInt(item['Mês Reparação']) - 1;
             const ano = parseInt(item['Ano Reparação']);
@@ -243,7 +246,6 @@ class ProdutividadeProcessor {
             case 'trimestre':
                 return 90;
             default:
-                // Para períodos personalizados, calcula diferença
                 if (periodo === 'personalizado' && this.dataInicio && this.dataFim) {
                     const diffTime = Math.abs(this.dataFim - this.dataInicio);
                     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
@@ -271,19 +273,10 @@ class ProdutividadeProcessor {
     calcularEstatisticas(dadosFiltrados, periodo) {
         const reparados = this.calcularReparadosPorTecnico(dadosFiltrados);
         
-        // Total de reparados no período
         const totalReparados = Object.values(reparados).reduce((sum, val) => sum + val, 0);
-        
-        // Número de dias no período
         const numeroDias = this.calcularNumeroDias(periodo);
-        
-        // Média diária
         const mediaDiaria = numeroDias > 0 ? totalReparados / numeroDias : 0;
-        
-        // Técnicos ativos (que repararam pelo menos 1)
         const tecnicosAtivos = Object.values(reparados).filter(v => v > 0).length;
-        
-        // Média por técnico ativo
         const mediaPorTecnico = tecnicosAtivos > 0 ? totalReparados / tecnicosAtivos : 0;
         
         return {
@@ -323,13 +316,6 @@ class ProdutividadeProcessor {
         return Array.from(polos).sort();
     }
 
-    // Versão paginada para não sobrecarregar a UI
-    getPaginaTecnicos(page = 1, pageSize = 50) {
-        const start = (page - 1) * pageSize;
-        const end = start + pageSize;
-        return this.tecnicos.slice(start, end);
-    }
-
     getEstatisticasRapidas() {
         return {
             totalRegistos: this.dados.length,
@@ -341,7 +327,6 @@ class ProdutividadeProcessor {
     }
 
     estimarMemoria() {
-        // Estimativa simples de memória usada
         try {
             const jsonSize = JSON.stringify(this.dados).length;
             const mbSize = (jsonSize / (1024 * 1024)).toFixed(2);
@@ -351,10 +336,9 @@ class ProdutividadeProcessor {
         }
     }
 
-    // Função de debug
     debug() {
         console.log('=== DEBUG PRODUTIVIDADE PROCESSOR ===');
-        console.log('Total registos:', this.dados.length);
+        console.log('Total registos (excluindo Orçamento Rejeitado):', this.dados.length);
         console.log('Total técnicos:', this.tecnicos.length);
         console.log('Tipologias:', this.getTipologias());
         console.log('Polos:', this.getPolos());
