@@ -5,7 +5,7 @@
 const processor = new ProdutividadeProcessor();
 const abertosProcessor = new AbertosProcessor();
 
-// Estado atual dos filtros
+// Estado atual dos filtros - PRODUTIVIDADES
 let filtroAtual = {
     periodo: 'hoje',
     dataInicio: null,
@@ -24,19 +24,19 @@ let filtroAbertos = {
 // Controlo do seletor de datas personalizado
 let dataPickerVisible = false;
 
-// Variável para guardar os dados atuais do período
+// Variável para guardar os dados atuais do período - PRODUTIVIDADES
 let dadosPeriodoAtual = [];
 
 // ============================================
-// ABA ABERTOS
+// ABA PRODUTIVIDADES (TODAS AS FUNÇÕES)
 // ============================================
 
-function mostrarAbertos() {
+function mostrarProdutividade() {
     const html = `
         <div>
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 style="margin: 0;">📋 OS Abertas - Área Técnica</h2>
-                <button onclick="exportarAbertosPDF()" 
+                <h2 style="margin: 0;">📊 Produtividade dos Técnicos</h2>
+                <button onclick="exportarRelatorioPDF()" 
                         style="background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; transition: all 0.3s;"
                         onmouseover="this.style.transform='scale(1.05)'" 
                         onmouseout="this.style.transform='scale(1)'">
@@ -49,69 +49,97 @@ function mostrarAbertos() {
             <div style="background: #f8fafc; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
                     
-                    <!-- FILTROS DE TIPOLOGIA (esquerda) -->
+                    <!-- FILTROS DE PERÍODO (esquerda) -->
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('hoje', this)">Hoje</button>
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('ontem', this)">Ontem</button>
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('semana', this)">7 dias</button>
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('mes', this)">30 dias</button>
+                        <button class="filtro-btn" onclick="aplicarFiltroPeriodo('trimestre', this)">90 dias</button>
+                        
+                        <button onclick="toggleDataPicker()" style="background: white; border: 1px solid #cbd5e1; border-radius: 4px; padding: 6px 12px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 14px;">
+                            <span style="font-size: 16px;">📅</span>
+                            Personalizado
+                        </button>
+                    </div>
+                    
+                    <!-- FILTROS DE TIPOLOGIA E LOCALIZAÇÃO (direita) -->
                     <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
-                        <!-- Tipologia -->
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <span style="font-weight: 500; color: #475569; font-size: 14px;">🏷️ Tipologia:</span>
-                            <select id="filtroTipologiaAbertos" onchange="onTipologiaAbertosChange(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 180px; font-size: 14px;">
-                                <option value="todas">Todas as tipologias</option>
-                                ${gerarOpcoesTipologiaAbertos()}
+                            <select id="filtroTipologia" onchange="onTipologiaChange(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 150px; font-size: 14px;">
+                                <option value="todas">Todas</option>
+                                ${gerarOpcoesTipologia()}
                             </select>
                         </div>
                         
-                        <!-- SUB-FILTRO MOBILE (aparece apenas quando Mobile é selecionado) -->
-                        <div id="mobileSubFiltroAbertosContainer" style="display: none; align-items: center; gap: 8px;">
+                        <div id="mobileSubFiltroContainer" style="display: none; align-items: center; gap: 8px;">
                             <span style="font-weight: 500; color: #475569; font-size: 14px;">📱 Mobile:</span>
-                            <select id="mobileTipoAbertos" onchange="aplicarFiltroMobileAbertos(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 120px; font-size: 14px;">
+                            <select id="mobileTipo" onchange="aplicarFiltroMobileTipo(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 120px; font-size: 14px;">
                                 <option value="todos">Todos</option>
                                 <option value="cliente">Cliente</option>
                                 <option value="dg">D&G</option>
                             </select>
                         </div>
+                        
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 500; color: #475569; font-size: 14px;">📍 Localização:</span>
+                            <select id="filtroPolo" onchange="aplicarFiltroPolo(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 130px; font-size: 14px;">
+                                <option value="todos">Todos</option>
+                                <option value="TSC SOUTH">TSC SOUTH</option>
+                                <option value="TSC NORTH">TSC NORTH</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="dataPickerContainer" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #cbd5e1;">
+                    <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                        <span style="font-weight: bold; color: #475569;">📅 Selecionar período:</span>
+                        <div>
+                            <label style="font-size: 12px; color: #64748b; margin-right: 5px;">De:</label>
+                            <input type="date" id="dataInicio" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; color: #64748b; margin-right: 5px;">Até:</label>
+                            <input type="date" id="dataFim" style="padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                        </div>
+                        <button onclick="aplicarFiltroPersonalizado()" style="background: #2563eb; color: white; border: none; padding: 6px 16px; border-radius: 4px; cursor: pointer;">Aplicar</button>
+                        <button onclick="toggleDataPicker()" style="background: transparent; border: 1px solid #94a3b8; padding: 6px 12px; border-radius: 4px; cursor: pointer;">Cancelar</button>
                     </div>
                 </div>
             </div>
             
             <!-- CARDS DE RESUMO -->
-            <div class="cards" style="margin-bottom: 20px;">
-                <div class="card">
-                    <small>Total OS Abertas</small>
-                    <strong id="totalAbertos">0</strong>
-                </div>
-                <div class="card">
-                    <small>Em Análise</small>
-                    <strong id="emAnalise">0</strong>
-                </div>
-                <div class="card">
-                    <small>Aguardam Orçamento</small>
-                    <strong id="aguardamOrcamento">0</strong>
-                </div>
-                <div class="card">
-                    <small>Orçamento Aceite</small>
-                    <strong id="orcamentoAceite">0</strong>
+            <div class="cards">
+                <div class="card"><small>Total Reparados</small><strong id="totalRep">0</strong></div>
+                <div class="card"><small>Média Diária</small><strong id="mediaDia">0</strong></div>
+                <div class="card"><small>Técnicos Ativos</small><strong id="tecAtivos">0</strong></div>
+                <div class="card"><small>Média/Técnico</small><strong id="mediaTec">0</strong></div>
+            </div>
+            
+            <div id="infoFiltro" style="background: #e0f2fe; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 14px; color: #0369a1;">
+                📍 Mostrando dados do período: <strong>Hoje</strong>
+            </div>
+            
+            <div style="margin: 20px 0;">
+                <h3 style="margin-bottom: 10px;">👥 Reparados por Técnico</h3>
+                <div style="max-height: 400px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: #f1f5f9;">
+                            <tr><th style="padding: 10px; text-align: left;">Técnico</th><th style="padding: 10px; text-align: left;">Quantidade</th><th style="padding: 10px; text-align: left;">Média/Dia</th><th style="padding: 10px; text-align: left;">%</th></tr>
+                        </thead>
+                        <tbody id="tabela"><tr><td colspan="4" style="text-align: center; padding: 30px;">Carregue um ficheiro para começar</td></tr></tbody>
+                    </table>
                 </div>
             </div>
             
-            <!-- INFORMAÇÃO DO FILTRO ATIVO -->
-            <div id="infoFiltroAbertos" style="background: #e0f2fe; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 14px; color: #0369a1;">
-                📍 Mostrando todas as tipologias
-            </div>
-            
-            <!-- ÁREA DE CARTÕES POR TIPOLOGIA -->
-            <div id="cardsTipologiasAbertos" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;">
-                <!-- Os cards serão gerados dinamicamente -->
-            </div>
-            
-            <!-- UPLOAD -->
-            <div class="upload-area" id="uploadAreaAbertos">
+            <div class="upload-area" id="uploadArea">
                 <span style="font-size: 48px;">📤</span>
                 <h3 style="margin: 15px 0;">Carregar Ficheiro Excel</h3>
-                <input type="file" id="fileInputAbertos" accept=".xlsx,.xls,.csv" style="display: none;">
-                <button class="btn-upload" onclick="document.getElementById('fileInputAbertos').click()">
-                    Selecionar Ficheiro
-                </button>
-                <div id="fileInfoAbertos" class="file-info"></div>
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+                <button class="btn-upload" onclick="document.getElementById('fileInput').click()">Selecionar Ficheiro</button>
+                <div id="fileInfo" class="file-info"></div>
             </div>
         </div>
     `;
@@ -119,551 +147,347 @@ function mostrarAbertos() {
     document.getElementById('conteudo').innerHTML = html;
     
     setTimeout(() => {
-        const input = document.getElementById('fileInputAbertos');
-        if (input) {
-            input.onchange = handleUploadAbertos;
-        }
+        const input = document.getElementById('fileInput');
+        if (input) input.onchange = handleUpload;
         
-        // Se já há dados carregados, atualiza os cards
-        if (abertosProcessor.dados && abertosProcessor.dados.length > 0) {
-            atualizarCardsAbertos();
+        const hoje = new Date();
+        const seteDiasAtras = new Date(hoje);
+        seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+        
+        const dataInicioInput = document.getElementById('dataInicio');
+        const dataFimInput = document.getElementById('dataFim');
+        if (dataInicioInput) dataInicioInput.value = seteDiasAtras.toISOString().split('T')[0];
+        if (dataFimInput) dataFimInput.value = hoje.toISOString().split('T')[0];
+        
+        if (processor.dados && processor.dados.length > 0) {
+            atualizarFiltroTipologia();
+            const botoes = document.querySelectorAll('.filtro-btn');
+            if (botoes.length > 0) aplicarFiltroPeriodo('hoje', botoes[0]);
         }
     }, 100);
 }
 
-function gerarOpcoesTipologiaAbertos() {
-    if (!abertosProcessor.dados || abertosProcessor.dados.length === 0) {
-        return '';
-    }
-    
-    const tipologias = abertosProcessor.getTipologiasAbertos();
-    
-    return tipologias.map(tipologia => 
-        `<option value="${tipologia}">${tipologia}</option>`
-    ).join('');
+function toggleDataPicker() {
+    const container = document.getElementById('dataPickerContainer');
+    if (container) { dataPickerVisible = !dataPickerVisible; container.style.display = dataPickerVisible ? 'block' : 'none'; }
 }
 
-function onTipologiaAbertosChange(tipologia) {
-    const mobileSubFiltro = document.getElementById('mobileSubFiltroAbertosContainer');
-    
+function gerarOpcoesTipologia() {
+    if (!processor.dados || processor.dados.length === 0) return '';
+    return processor.getTipologias().map(t => `<option value="${t}">${t}</option>`).join('');
+}
+
+function atualizarFiltroTipologia() {
+    const select = document.getElementById('filtroTipologia');
+    if (select) select.innerHTML = `<option value="todas">Todas</option>${gerarOpcoesTipologia()}`;
+}
+
+function onTipologiaChange(tipologia) {
+    const mobileSubFiltro = document.getElementById('mobileSubFiltroContainer');
     if (tipologia === 'Mobile') {
         mobileSubFiltro.style.display = 'flex';
     } else {
         mobileSubFiltro.style.display = 'none';
-        filtroAbertos.mobileTipo = 'todos';
-        const mobileSelect = document.getElementById('mobileTipoAbertos');
+        filtroAtual.mobileTipo = 'todos';
+        const mobileSelect = document.getElementById('mobileTipo');
         if (mobileSelect) mobileSelect.value = 'todos';
     }
-    
-    filtroAbertos.tipologia = tipologia;
-    atualizarCardsAbertos();
-    atualizarInfoFiltroAbertos();
+    filtroAtual.tipologia = tipologia;
+    aplicarFiltros();
+    atualizarInfoFiltro();
 }
 
-function aplicarFiltroMobileAbertos(tipo) {
-    filtroAbertos.mobileTipo = tipo;
-    atualizarCardsAbertos();
-    atualizarInfoFiltroAbertos();
+function aplicarFiltroMobileTipo(tipo) { filtroAtual.mobileTipo = tipo; aplicarFiltros(); atualizarInfoFiltro(); }
+function aplicarFiltroPolo(polo) { filtroAtual.polo = polo; aplicarFiltros(); atualizarInfoFiltro(); }
+
+function aplicarFiltroPeriodo(periodo, botao) {
+    if (dataPickerVisible) toggleDataPicker();
+    document.querySelectorAll('.filtro-btn').forEach(btn => btn.classList.remove('active'));
+    botao.classList.add('active');
+    filtroAtual.periodo = periodo;
+    filtroAtual.dataInicio = null;
+    filtroAtual.dataFim = null;
+    aplicarFiltros();
+    atualizarInfoFiltro();
 }
 
-function atualizarInfoFiltroAbertos() {
-    const infoElement = document.getElementById('infoFiltroAbertos');
+function aplicarFiltroPersonalizado() {
+    const dataInicio = document.getElementById('dataInicio').value;
+    const dataFim = document.getElementById('dataFim').value;
+    if (!dataInicio || !dataFim) { alert('Selecione as datas de início e fim'); return; }
+    toggleDataPicker();
+    document.querySelectorAll('.filtro-btn').forEach(btn => btn.classList.remove('active'));
+    filtroAtual.periodo = 'personalizado';
+    filtroAtual.dataInicio = new Date(dataInicio);
+    filtroAtual.dataFim = new Date(dataFim);
+    filtroAtual.dataFim.setHours(23, 59, 59, 999);
+    aplicarFiltros();
+    atualizarInfoFiltro();
+}
+
+function atualizarInfoFiltro() {
+    const infoElement = document.getElementById('infoFiltro');
     let infoText = '';
-    
-    if (filtroAbertos.tipologia !== 'todas') {
-        infoText = `📍 Tipologia: <strong>${filtroAbertos.tipologia}</strong>`;
-        
-        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
-            const mobileTexto = filtroAbertos.mobileTipo === 'cliente' ? 'Cliente' : 'D&G';
-            infoText += ` <span style="background: #2563eb20; padding: 2px 6px; border-radius: 12px;">${mobileTexto}</span>`;
-        }
+    if (filtroAtual.periodo === 'personalizado') {
+        infoText = `📍 Período: <strong>${filtroAtual.dataInicio.toLocaleDateString('pt-PT')}</strong> até <strong>${filtroAtual.dataFim.toLocaleDateString('pt-PT')}</strong>`;
     } else {
-        infoText = '📍 Mostrando todas as tipologias';
+        const nomes = { 'hoje': 'Hoje', 'ontem': 'Ontem', 'semana': 'Últimos 7 dias', 'mes': 'Últimos 30 dias', 'trimestre': 'Últimos 90 dias' };
+        infoText = `📍 Período: <strong>${nomes[filtroAtual.periodo]}</strong>`;
     }
-    
+    if (filtroAtual.tipologia !== 'todas') {
+        infoText += ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>`;
+        if (filtroAtual.tipologia === 'Mobile' && filtroAtual.mobileTipo !== 'todos') {
+            infoText += ` <span style="background:#2563eb20;padding:2px 6px;border-radius:12px;">${filtroAtual.mobileTipo === 'cliente' ? 'Cliente' : 'D&G'}</span>`;
+        }
+    }
+    if (filtroAtual.polo !== 'todos') infoText += ` | Localização: <strong>${filtroAtual.polo}</strong>`;
     infoElement.innerHTML = infoText;
 }
 
-function atualizarCardsAbertos() {
-    if (!abertosProcessor.dados || abertosProcessor.dados.length === 0) return;
-    
-    // Filtra os dados
-    let dadosFiltrados = abertosProcessor.dados;
-    
-    if (filtroAbertos.tipologia !== 'todas') {
-        dadosFiltrados = dadosFiltrados.filter(item => 
-            item.tipologia && item.tipologia === filtroAbertos.tipologia
-        );
-        
-        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
+function aplicarFiltros() {
+    if (!processor.dados || processor.dados.length === 0) return;
+    let dadosFiltrados = processor.dados;
+    if (filtroAtual.periodo === 'personalizado') {
+        dadosFiltrados = dadosFiltrados.filter(item => { const dataItem = processor.getDataReparacao(item); return dataItem && dataItem >= filtroAtual.dataInicio && dataItem <= filtroAtual.dataFim; });
+    } else {
+        dadosFiltrados = processor.filtrarPorPeriodo(filtroAtual.periodo);
+    }
+    if (filtroAtual.tipologia !== 'todas') {
+        dadosFiltrados = dadosFiltrados.filter(item => item.tipologia && item.tipologia === filtroAtual.tipologia);
+        if (filtroAtual.tipologia === 'Mobile' && filtroAtual.mobileTipo !== 'todos') {
             dadosFiltrados = dadosFiltrados.filter(item => {
-                if (filtroAbertos.mobileTipo === 'dg') {
-                    return item.tipo_garantia === 'Seguro D&G';
-                } else if (filtroAbertos.mobileTipo === 'cliente') {
-                    return item.tipo_garantia && item.tipo_garantia !== 'Seguro D&G';
-                }
-                return true;
+                if (filtroAtual.mobileTipo === 'dg') return item.tipo_garantia === 'Seguro D&G';
+                else return item.tipo_garantia && item.tipo_garantia !== 'Seguro D&G';
             });
         }
     }
-    
-    // Calcula totais
-    const totalAbertos = dadosFiltrados.length;
-    const emAnalise = dadosFiltrados.filter(item => 
-        item.resultado_analise_tecnica === 'Análise Técnica Concluída' || 
-        !item.reparacao || item.reparacao === ''
-    ).length;
-    const aguardamOrcamento = dadosFiltrados.filter(item => 
-        item.resultado_orcamento === 'Aguardar Orçamento' || 
-        item.resultado_orcamento === 'Orçamento Pendente'
-    ).length;
-    const orcamentoAceite = dadosFiltrados.filter(item => 
-        item.resultado_orcamento === 'Orçamento Aceite'
-    ).length;
-    
-    // Atualiza cards de resumo
-    document.getElementById('totalAbertos').textContent = totalAbertos;
-    document.getElementById('emAnalise').textContent = emAnalise;
-    document.getElementById('aguardamOrcamento').textContent = aguardamOrcamento;
-    document.getElementById('orcamentoAceite').textContent = orcamentoAceite;
-    
-    // Gera cards por tipologia
-    let tipologiasParaMostrar = abertosProcessor.getTipologiasAbertos();
-    
-    // Filtra tipologias se uma específica foi selecionada
-    if (filtroAbertos.tipologia !== 'todas') {
-        tipologiasParaMostrar = [filtroAbertos.tipologia];
-    }
-    
-    const container = document.getElementById('cardsTipologiasAbertos');
-    
-    container.innerHTML = tipologiasParaMostrar.map(tipologia => {
-        let dadosTipologia = abertosProcessor.dados.filter(item => 
-            item.tipologia === tipologia
-        );
-        
-        // Aplica sub-filtro Mobile se necessário
-        if (tipologia === 'Mobile' && filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
-            dadosTipologia = dadosTipologia.filter(item => {
-                if (filtroAbertos.mobileTipo === 'dg') {
-                    return item.tipo_garantia === 'Seguro D&G';
-                } else if (filtroAbertos.mobileTipo === 'cliente') {
-                    return item.tipo_garantia && item.tipo_garantia !== 'Seguro D&G';
-                }
-                return true;
-            });
-        } else if (tipologia === 'Mobile' && filtroAbertos.tipologia === 'todas') {
-            // Se não há filtro de tipologia, mostra separado por Cliente e D&G
-            const dadosCliente = dadosTipologia.filter(item => 
-                item.tipo_garantia !== 'Seguro D&G'
-            );
-            const dadosDG = dadosTipologia.filter(item => 
-                item.tipo_garantia === 'Seguro D&G'
-            );
-            
-            return `
-                <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3 style="margin: 0; color: #1e293b;">📱 ${tipologia}</h3>
-                        <span style="background: #2563eb; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px;">Total: ${dadosTipologia.length}</span>
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div style="background: #f0f9ff; border-radius: 8px; padding: 12px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
-                                <span style="font-size: 20px;">👥</span>
-                                <strong>Cliente</strong>
-                            </div>
-                            <div style="font-size: 28px; font-weight: bold; color: #2563eb;">${dadosCliente.length}</div>
-                        </div>
-                        <div style="background: #fef3c7; border-radius: 8px; padding: 12px;">
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px;">
-                                <span style="font-size: 20px;">🛡️</span>
-                                <strong>D&G</strong>
-                            </div>
-                            <div style="font-size: 28px; font-weight: bold; color: #f59e0b;">${dadosDG.length}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Para outras tipologias ou quando Mobile já está filtrado
-        return `
-            <div style="background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; color: #1e293b;">${getIconeTipologia(tipologia)} ${tipologia}</h3>
-                    <span style="background: #2563eb; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px;">Total: ${dadosTipologia.length}</span>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
-                    <div>
-                        <div style="color: #64748b; font-size: 12px;">Em Análise</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #1e293b;">${dadosTipologia.filter(item => 
-                            item.resultado_analise_tecnica === 'Análise Técnica Concluída' || 
-                            !item.reparacao || item.reparacao === ''
-                        ).length}</div>
-                    </div>
-                    <div>
-                        <div style="color: #64748b; font-size: 12px;">Aguardam Orçamento</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #f59e0b;">${dadosTipologia.filter(item => 
-                            item.resultado_orcamento === 'Aguardar Orçamento' || 
-                            item.resultado_orcamento === 'Orçamento Pendente'
-                        ).length}</div>
-                    </div>
-                    <div>
-                        <div style="color: #64748b; font-size: 12px;">Orçamento Aceite</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #10b981;">${dadosTipologia.filter(item => 
-                            item.resultado_orcamento === 'Orçamento Aceite'
-                        ).length}</div>
-                    </div>
-                    <div>
-                        <div style="color: #64748b; font-size: 12px;">% Aceitação</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #2563eb;">${dadosTipologia.length > 0 ? 
-                            Math.round(dadosTipologia.filter(item => item.resultado_orcamento === 'Orçamento Aceite').length / dadosTipologia.length * 100) : 0}%</div>
-                    </div>
-                </div>
-            </div>
-        `;
+    if (filtroAtual.polo !== 'todos') dadosFiltrados = dadosFiltrados.filter(item => item.polo && item.polo === filtroAtual.polo);
+    dadosPeriodoAtual = dadosFiltrados;
+    const stats = processor.calcularEstatisticas(dadosFiltrados, filtroAtual.periodo);
+    document.getElementById('totalRep').textContent = stats.totalReparados;
+    document.getElementById('mediaDia').textContent = stats.mediaDiaria.toFixed(1);
+    document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
+    document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
+    atualizarTabela(stats);
+}
+
+function atualizarTabela(stats) {
+    const tabela = document.getElementById('tabela');
+    if (stats.totalReparados === 0) { tabela.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 20px;">Nenhum reparado neste período</td></tr>'; return; }
+    const maxQuantidade = Math.max(...Object.values(stats.reparados));
+    const diasComRegisto = stats.numeroDias;
+    const tecnicos = Object.entries(stats.reparados).filter(([_, qtd]) => qtd > 0).sort((a, b) => b[1] - a[1]).slice(0, 100);
+    tabela.innerHTML = tecnicos.map(([tecnico, qtd]) => {
+        const media = diasComRegisto > 0 ? (qtd / diasComRegisto).toFixed(1) : '0.0';
+        const percentual = (qtd / maxQuantidade * 100).toFixed(0);
+        return `<tr><td style="padding:8px;border-bottom:1px solid #e2e8f0;"><a href="javascript:void(0)" onclick="abrirDetalheTecnico('${tecnico.replace(/'/g, "\\'")}')" style="color:#2563eb;text-decoration:none;font-weight:600;cursor:pointer;">${tecnico}</a></td><td style="padding:8px;border-bottom:1px solid #e2e8f0;">${qtd}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;">${media}</td><td style="padding:8px;border-bottom:1px solid #e2e8f0;"><div style="background:#e2e8f0;border-radius:10px;width:100px;height:8px;"><div style="background:linear-gradient(90deg,#2563eb,#7c3aed);width:${percentual}%;height:8px;border-radius:10px;"></div></div></td></tr>`;
     }).join('');
 }
 
-function getIconeTipologia(tipologia) {
-    const icones = {
-        'Mobile': '📱',
-        'Informática': '💻',
-        'Entretenimento': '🎮',
-        'Som e Imagem': '🎵',
-        'Pequenos Domésticos': '🔌'
-    };
-    return icones[tipologia] || '📦';
+async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fileInfo = document.getElementById('fileInfo');
+    fileInfo.innerHTML = `📂 A processar ${file.name}...`;
+    try {
+        await processor.carregarDados(file);
+        document.getElementById('uploadArea').style.display = 'none';
+        atualizarFiltroTipologia();
+        const botoes = document.querySelectorAll('.filtro-btn');
+        if (botoes.length > 0) aplicarFiltroPeriodo('hoje', botoes[0]);
+        fileInfo.innerHTML = `✅ ${file.name} carregado (${processor.dados.length} registos)`;
+    } catch (error) { fileInfo.innerHTML = `❌ Erro: ${error.message}`; console.error(error); }
 }
+
+function abrirDetalheTecnico(tecnico) {
+    if (!processor.dados || processor.dados.length === 0) { alert('Carregue um ficheiro primeiro!'); return; }
+    let dadosTecnico = dadosPeriodoAtual.filter(item => (item.tecnico_reparacao || item.Tecnico || 'Não atribuído') === tecnico);
+    const evolucao = {};
+    dadosTecnico.forEach(item => { const data = processor.getDataReparacao(item); if (data) evolucao[data.toLocaleDateString('pt-PT')] = (evolucao[data.toLocaleDateString('pt-PT')] || 0) + 1; });
+    const dias = Object.keys(evolucao).sort((a,b) => { const [da,ma,aa]=a.split('/').map(Number); const [db,mb,ab]=b.split('/').map(Number); if(aa!==ab)return aa-ab; if(ma!==mb)return ma-mb; return da-db; });
+    const valores = dias.map(d => evolucao[d]);
+    const maxValor = Math.max(...valores, 1);
+    const modal = document.createElement('div');
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
+    modal.innerHTML = `<div style="background:white;border-radius:12px;width:90%;max-width:600px;max-height:80vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2);"><div style="padding:20px 24px;border-bottom:1px solid #e2e8f0;display:flex;justify-content:space-between;"><div><h2 style="margin:0;">👤 ${tecnico}</h2><p style="margin:5px 0 0 0;color:#64748b;">Total reparado no período: <strong>${dadosTecnico.length}</strong></p></div><button onclick="fecharModal()" style="background:none;border:none;font-size:24px;cursor:pointer;">&times;</button></div><div style="padding:24px;"><h3>📊 Evolução Diária</h3><div style="background:#f8fafc;border-radius:8px;padding:20px;"><div style="display:flex;align-items:flex-end;gap:8px;min-height:200px;padding:10px 0;">${dias.map((dia,i) => `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;"><div style="width:100%;display:flex;justify-content:center;"><div style="width:30px;background:linear-gradient(180deg,#2563eb,#7c3aed);border-radius:6px 6px 0 0;height:${(valores[i]/maxValor)*150}px;position:relative;"><span style="position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:10px;">${valores[i]}</span></div></div><span style="font-size:10px;">${dia}</span></div>`).join('')}</div></div></div><div style="padding:16px 24px;border-top:1px solid #e2e8f0;display:flex;justify-content:flex-end;"><button onclick="fecharModal()" style="background:#f1f5f9;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;">Fechar</button></div></div>`;
+    document.body.appendChild(modal);
+    modal.onclick = (e) => { if (e.target === modal) fecharModal(); };
+}
+
+function fecharModal() { const modal = document.getElementById('modalDetalhe'); if(modal) modal.remove(); else document.querySelector('div[style*="position:fixed"]')?.remove(); }
+
+async function exportarRelatorioPDF() {
+    if (!processor.dados || processor.dados.length === 0) { alert('Carregue um ficheiro primeiro!'); return; }
+    const loadingMsg = document.createElement('div'); loadingMsg.style.cssText = 'position:fixed;top:20px;right:20px;background:#2563eb;color:white;padding:12px 20px;border-radius:8px;z-index:1001;font-weight:bold;'; loadingMsg.innerHTML = '📄 A gerar relatório...'; document.body.appendChild(loadingMsg);
+    try {
+        await new Promise(r => setTimeout(r, 100));
+        const stats = processor.calcularEstatisticas(dadosPeriodoAtual, filtroAtual.periodo);
+        const tecnicos = Object.entries(stats.reparados).filter(([_,qtd])=>qtd>0).sort((a,b)=>b[1]-a[1]);
+        const periodoTexto = filtroAtual.periodo === 'personalizado' ? `${filtroAtual.dataInicio.toLocaleDateString('pt-PT')} a ${filtroAtual.dataFim.toLocaleDateString('pt-PT')}` : {hoje:'Hoje',ontem:'Ontem',semana:'Últimos 7 dias',mes:'Últimos 30 dias',trimestre:'Últimos 90 dias'}[filtroAtual.periodo];
+        let filtrosTexto = []; if (filtroAtual.tipologia !== 'todas') { let t = `Tipologia: ${filtroAtual.tipologia}`; if (filtroAtual.tipologia === 'Mobile' && filtroAtual.mobileTipo !== 'todos') t += ` (${filtroAtual.mobileTipo === 'cliente' ? 'Cliente' : 'D&G'})`; filtrosTexto.push(t); } if (filtroAtual.polo !== 'todos') filtrosTexto.push(`Localização: ${filtroAtual.polo}`);
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Produtividade</title><style>body{font-family:Arial;padding:40px;} .header{text-align:center;margin-bottom:30px;} .info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:20px 0;} .info-card{background:#f8fafc;padding:15px;border-radius:8px;text-align:center;} table{width:100%;border-collapse:collapse;} th,td{padding:10px;text-align:left;border-bottom:1px solid #e2e8f0;}</style></head><body><div class="header"><h1>📊 Relatório de Produtividade</h1><p>Gerado em ${new Date().toLocaleDateString('pt-PT')}</p></div><div class="info-grid"><div class="info-card"><small>Total Reparados</small><strong>${stats.totalReparados}</strong></div><div class="info-card"><small>Média Diária</small><strong>${stats.mediaDiaria.toFixed(1)}</strong></div><div class="info-card"><small>Técnicos Ativos</small><strong>${stats.tecnicosAtivos}</strong></div><div class="info-card"><small>Média/Técnico</small><strong>${stats.mediaPorTecnico.toFixed(1)}</strong></div></div><div><strong>Período:</strong> ${periodoTexto}<br><strong>Filtros:</strong> ${filtrosTexto.length?filtrosTexto.join(' | '):'Nenhum'}<br><strong>Dias com registo:</strong> ${stats.numeroDias}</div><h3>👥 Reparados por Técnico</h3><table><thead><tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th></tr></thead><tbody>${tecnicos.map(([t,q])=>`<tr><td><strong>${t}</strong></td><td>${q}</td><td>${(q/stats.numeroDias).toFixed(1)}</td><td>${((q/stats.totalReparados)*100).toFixed(1)}%</td></tr>`).join('')}</tbody></table><div style="margin-top:30px;text-align:center;font-size:12px;color:#94a3b8;">Relatório gerado automaticamente pelo Dashboard Centro Técnico</div></body></html>`;
+        const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:absolute;width:0;height:0;border:none;'; document.body.appendChild(iframe);
+        const doc = iframe.contentWindow.document; doc.open(); doc.write(html); doc.close();
+        iframe.contentWindow.onload = () => { iframe.contentWindow.print(); setTimeout(()=>document.body.removeChild(iframe),1000); };
+        loadingMsg.remove();
+    } catch(e) { loadingMsg.remove(); alert('Erro ao gerar PDF'); console.error(e); }
+}
+
+// ============================================
+// ABA ABERTOS
+// ============================================
+
+function mostrarAbertos() {
+    const html = `
+        <div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">📋 OS Abertas - Área Técnica</h2>
+                <button onclick="exportarAbertosPDF()" style="background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold;">
+                    <span style="font-size: 18px;">📄</span> Exportar PDF
+                </button>
+            </div>
+            
+            <div style="background: #f8fafc; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;">
+                <div style="display: flex; gap: 15px; flex-wrap: wrap; align-items: center;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-weight: 500;">🏷️ Tipologia:</span>
+                        <select id="filtroTipologiaAbertos" onchange="onTipologiaAbertosChange(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px; min-width: 180px;">
+                            <option value="todas">Todas as tipologias</option>
+                            ${gerarOpcoesTipologiaAbertos()}
+                        </select>
+                    </div>
+                    <div id="mobileSubFiltroAbertosContainer" style="display: none; align-items: center; gap: 8px;">
+                        <span style="font-weight: 500;">📱 Mobile:</span>
+                        <select id="mobileTipoAbertos" onchange="aplicarFiltroMobileAbertos(this.value)" style="padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                            <option value="todos">Todos</option><option value="cliente">Cliente</option><option value="dg">D&G</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="cards" style="margin-bottom: 20px;">
+                <div class="card"><small>Total OS Abertas</small><strong id="totalAbertos">0</strong></div>
+                <div class="card"><small>Em Análise</small><strong id="emAnalise">0</strong></div>
+                <div class="card"><small>Aguardam Orçamento</small><strong id="aguardamOrcamento">0</strong></div>
+                <div class="card"><small>Orçamento Aceite</small><strong id="orcamentoAceite">0</strong></div>
+            </div>
+            
+            <div id="infoFiltroAbertos" style="background: #e0f2fe; padding: 10px; border-radius: 4px; margin-bottom: 15px;">📍 Mostrando todas as tipologias</div>
+            
+            <div id="cardsTipologiasAbertos" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;"></div>
+            
+            <div class="upload-area" id="uploadAreaAbertos">
+                <span style="font-size: 48px;">📤</span>
+                <h3>Carregar Ficheiro Excel</h3>
+                <input type="file" id="fileInputAbertos" accept=".xlsx,.xls,.csv" style="display: none;">
+                <button class="btn-upload" onclick="document.getElementById('fileInputAbertos').click()">Selecionar Ficheiro</button>
+                <div id="fileInfoAbertos" class="file-info"></div>
+            </div>
+        </div>
+    `;
+    document.getElementById('conteudo').innerHTML = html;
+    setTimeout(() => {
+        const input = document.getElementById('fileInputAbertos');
+        if (input) input.onchange = handleUploadAbertos;
+        if (abertosProcessor.dados && abertosProcessor.dados.length > 0) atualizarCardsAbertos();
+    }, 100);
+}
+
+function gerarOpcoesTipologiaAbertos() {
+    if (!abertosProcessor.dados || abertosProcessor.dados.length === 0) return '';
+    return abertosProcessor.getTipologiasAbertos().map(t => `<option value="${t}">${t}</option>`).join('');
+}
+
+function onTipologiaAbertosChange(tipologia) {
+    const mobileSub = document.getElementById('mobileSubFiltroAbertosContainer');
+    if (tipologia === 'Mobile') mobileSub.style.display = 'flex';
+    else { mobileSub.style.display = 'none'; filtroAbertos.mobileTipo = 'todos'; const ms = document.getElementById('mobileTipoAbertos'); if(ms) ms.value='todos'; }
+    filtroAbertos.tipologia = tipologia;
+    atualizarCardsAbertos();
+    document.getElementById('infoFiltroAbertos').innerHTML = filtroAbertos.tipologia !== 'todas' ? `📍 Tipologia: <strong>${filtroAbertos.tipologia}</strong>${filtroAbertos.tipologia==='Mobile'&&filtroAbertos.mobileTipo!=='todos'?` <span style="background:#2563eb20;padding:2px 6px;border-radius:12px;">${filtroAbertos.mobileTipo==='cliente'?'Cliente':'D&G'}</span>`:''}` : '📍 Mostrando todas as tipologias';
+}
+
+function aplicarFiltroMobileAbertos(tipo) { filtroAbertos.mobileTipo = tipo; atualizarCardsAbertos(); onTipologiaAbertosChange(filtroAbertos.tipologia); }
+
+function atualizarCardsAbertos() {
+    if (!abertosProcessor.dados || abertosProcessor.dados.length === 0) return;
+    let dados = abertosProcessor.dados;
+    if (filtroAbertos.tipologia !== 'todas') {
+        dados = dados.filter(i => i.tipologia === filtroAbertos.tipologia);
+        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
+            dados = dados.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia && i.tipo_garantia !== 'Seguro D&G');
+        }
+    }
+    const total = dados.length;
+    const emAnalise = dados.filter(i => i.resultado_analise_tecnica === 'Análise Técnica Concluída' || !i.reparacao).length;
+    const aguardam = dados.filter(i => i.resultado_orcamento === 'Aguardar Orçamento' || i.resultado_orcamento === 'Orçamento Pendente').length;
+    const aceite = dados.filter(i => i.resultado_orcamento === 'Orçamento Aceite').length;
+    document.getElementById('totalAbertos').textContent = total;
+    document.getElementById('emAnalise').textContent = emAnalise;
+    document.getElementById('aguardamOrcamento').textContent = aguardam;
+    document.getElementById('orcamentoAceite').textContent = aceite;
+    
+    let tipologias = abertosProcessor.getTipologiasAbertos();
+    if (filtroAbertos.tipologia !== 'todas') tipologias = [filtroAbertos.tipologia];
+    const container = document.getElementById('cardsTipologiasAbertos');
+    container.innerHTML = tipologias.map(tip => {
+        let dadosTip = abertosProcessor.dados.filter(i => i.tipologia === tip);
+        if (tip === 'Mobile' && filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
+            dadosTip = dadosTip.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia && i.tipo_garantia !== 'Seguro D&G');
+        }
+        if (tip === 'Mobile' && filtroAbertos.tipologia === 'todas') {
+            const cliente = dadosTip.filter(i => i.tipo_garantia !== 'Seguro D&G');
+            const dg = dadosTip.filter(i => i.tipo_garantia === 'Seguro D&G');
+            return `<div style="background:white;border-radius:12px;padding:20px;border:1px solid #e2e8f0;"><div style="display:flex;justify-content:space-between;"><h3>📱 ${tip}</h3><span style="background:#2563eb;color:white;padding:4px 12px;border-radius:20px;">Total: ${dadosTip.length}</span></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:15px;"><div style="background:#f0f9ff;padding:12px;border-radius:8px;"><strong>Cliente</strong><div style="font-size:28px;font-weight:bold;">${cliente.length}</div></div><div style="background:#fef3c7;padding:12px;border-radius:8px;"><strong>D&G</strong><div style="font-size:28px;font-weight:bold;">${dg.length}</div></div></div></div>`;
+        }
+        return `<div style="background:white;border-radius:12px;padding:20px;border:1px solid #e2e8f0;"><div style="display:flex;justify-content:space-between;"><h3>${getIconeTipologia(tip)} ${tip}</h3><span style="background:#2563eb;color:white;padding:4px 12px;border-radius:20px;">Total: ${dadosTip.length}</span></div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:15px;"><div><div style="color:#64748b;">Em Análise</div><div style="font-size:24px;font-weight:bold;">${dadosTip.filter(i => i.resultado_analise_tecnica === 'Análise Técnica Concluída' || !i.reparacao).length}</div></div><div><div style="color:#64748b;">Aguardam Orçamento</div><div style="font-size:24px;font-weight:bold;color:#f59e0b;">${dadosTip.filter(i => i.resultado_orcamento === 'Aguardar Orçamento' || i.resultado_orcamento === 'Orçamento Pendente').length}</div></div><div><div style="color:#64748b;">Orçamento Aceite</div><div style="font-size:24px;font-weight:bold;color:#10b981;">${dadosTip.filter(i => i.resultado_orcamento === 'Orçamento Aceite').length}</div></div><div><div style="color:#64748b;">% Aceitação</div><div style="font-size:24px;font-weight:bold;">${dadosTip.length ? Math.round(dadosTip.filter(i=>i.resultado_orcamento==='Orçamento Aceite').length/dadosTip.length*100) : 0}%</div></div></div></div>`;
+    }).join('');
+}
+
+function getIconeTipologia(t) { const i = {'Mobile':'📱','Informática':'💻','Entretenimento':'🎮','Som e Imagem':'🎵','Pequenos Domésticos':'🔌'}; return i[t]||'📦'; }
 
 async function handleUploadAbertos(e) {
     const file = e.target.files[0];
     if (!file) return;
-    
-    const fileInfo = document.getElementById('fileInfoAbertos');
-    fileInfo.innerHTML = `📂 A processar ${file.name}...`;
-    
+    const info = document.getElementById('fileInfoAbertos');
+    info.innerHTML = `📂 A processar ${file.name}...`;
     try {
         await abertosProcessor.carregarDados(file);
-        
-        // Esconde área de upload
         document.getElementById('uploadAreaAbertos').style.display = 'none';
-        
-        // Atualiza os cards
         atualizarCardsAbertos();
-        
-        fileInfo.innerHTML = `✅ ${file.name} carregado (${abertosProcessor.dados.length} registos)`;
-        
-    } catch (error) {
-        fileInfo.innerHTML = `❌ Erro: ${error.message}`;
-        console.error(error);
-    }
+        info.innerHTML = `✅ ${file.name} carregado (${abertosProcessor.dados.length} registos)`;
+    } catch (error) { info.innerHTML = `❌ Erro: ${error.message}`; console.error(error); }
 }
-
-// ============================================
-// FUNÇÕES DE EXPORTAÇÃO PARA PDF (ABERTOS)
-// ============================================
 
 async function exportarAbertosPDF() {
-    if (!abertosProcessor.dados || abertosProcessor.dados.length === 0) {
-        alert('Carregue um ficheiro primeiro!');
-        return;
-    }
-    
-    const loadingMsg = document.createElement('div');
-    loadingMsg.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #2563eb;
-        color: white;
-        padding: 12px 20px;
-        border-radius: 8px;
-        z-index: 1001;
-        font-weight: bold;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    `;
-    loadingMsg.innerHTML = '📄 A gerar relatório...';
-    document.body.appendChild(loadingMsg);
-    
+    if (!abertosProcessor.dados || abertosProcessor.dados.length === 0) { alert('Carregue um ficheiro primeiro!'); return; }
+    const loading = document.createElement('div'); loading.style.cssText = 'position:fixed;top:20px;right:20px;background:#2563eb;color:white;padding:12px 20px;border-radius:8px;z-index:1001;'; loading.innerHTML = '📄 A gerar relatório...'; document.body.appendChild(loading);
     try {
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const relatorioHTML = gerarHTMLRelatorioAbertos();
-        
-        const iframe = document.createElement('iframe');
-        iframe.style.position = 'absolute';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
-        iframe.style.border = 'none';
-        document.body.appendChild(iframe);
-        
-        const doc = iframe.contentWindow.document;
-        doc.open();
-        doc.write(relatorioHTML);
-        doc.close();
-        
-        iframe.contentWindow.onload = () => {
-            iframe.contentWindow.print();
-            
-            setTimeout(() => {
-                document.body.removeChild(iframe);
-            }, 1000);
-        };
-        
-        loadingMsg.remove();
-        
-    } catch (error) {
-        console.error('Erro ao gerar PDF:', error);
-        loadingMsg.style.background = '#ef4444';
-        loadingMsg.innerHTML = '❌ Erro ao gerar relatório';
-        setTimeout(() => loadingMsg.remove(), 2000);
-        alert('Erro ao gerar relatório: ' + error.message);
-    }
-}
-
-function gerarHTMLRelatorioAbertos() {
-    const dataAtual = new Date().toLocaleDateString('pt-PT', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    
-    let dadosFiltrados = abertosProcessor.dados;
-    
-    if (filtroAbertos.tipologia !== 'todas') {
-        dadosFiltrados = dadosFiltrados.filter(item => 
-            item.tipologia && item.tipologia === filtroAbertos.tipologia
-        );
-        
-        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
-            dadosFiltrados = dadosFiltrados.filter(item => {
-                if (filtroAbertos.mobileTipo === 'dg') {
-                    return item.tipo_garantia === 'Seguro D&G';
-                } else if (filtroAbertos.mobileTipo === 'cliente') {
-                    return item.tipo_garantia && item.tipo_garantia !== 'Seguro D&G';
-                }
-                return true;
-            });
+        let dados = abertosProcessor.dados;
+        if (filtroAbertos.tipologia !== 'todas') {
+            dados = dados.filter(i => i.tipologia === filtroAbertos.tipologia);
+            if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
+                dados = dados.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia && i.tipo_garantia !== 'Seguro D&G');
+            }
         }
-    }
-    
-    const totalAbertos = dadosFiltrados.length;
-    const emAnalise = dadosFiltrados.filter(item => 
-        item.resultado_analise_tecnica === 'Análise Técnica Concluída' || 
-        !item.reparacao || item.reparacao === ''
-    ).length;
-    const aguardamOrcamento = dadosFiltrados.filter(item => 
-        item.resultado_orcamento === 'Aguardar Orçamento' || 
-        item.resultado_orcamento === 'Orçamento Pendente'
-    ).length;
-    const orcamentoAceite = dadosFiltrados.filter(item => 
-        item.resultado_orcamento === 'Orçamento Aceite'
-    ).length;
-    
-    let filtrosTexto = [];
-    if (filtroAbertos.tipologia !== 'todas') {
-        let texto = `Tipologia: ${filtroAbertos.tipologia}`;
-        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
-            texto += ` (${filtroAbertos.mobileTipo === 'cliente' ? 'Cliente' : 'D&G'})`;
-        }
-        filtrosTexto.push(texto);
-    }
-    const filtrosAtivosTexto = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Nenhum filtro adicional';
-    
-    let tipologiasParaMostrar = abertosProcessor.getTipologiasAbertos();
-    if (filtroAbertos.tipologia !== 'todas') {
-        tipologiasParaMostrar = [filtroAbertos.tipologia];
-    }
-    
-    const cardsHTML = tipologiasParaMostrar.map(tipologia => {
-        let dadosTipologia = abertosProcessor.dados.filter(item => 
-            item.tipologia === tipologia
-        );
-        
-        if (tipologia === 'Mobile' && filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
-            dadosTipologia = dadosTipologia.filter(item => {
-                if (filtroAbertos.mobileTipo === 'dg') {
-                    return item.tipo_garantia === 'Seguro D&G';
-                } else if (filtroAbertos.mobileTipo === 'cliente') {
-                    return item.tipo_garantia && item.tipo_garantia !== 'Seguro D&G';
-                }
-                return true;
-            });
-        }
-        
-        if (tipologia === 'Mobile' && filtroAbertos.tipologia === 'todas') {
-            const dadosCliente = dadosTipologia.filter(item => 
-                item.tipo_garantia !== 'Seguro D&G'
-            );
-            const dadosDG = dadosTipologia.filter(item => 
-                item.tipo_garantia === 'Seguro D&G'
-            );
-            
-            return `
-                <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
-                    <h3 style="margin: 0 0 15px 0;">📱 ${tipologia}</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-                        <div style="background: #f0f9ff; padding: 15px; border-radius: 8px;">
-                            <strong>Cliente</strong>
-                            <div style="font-size: 32px; font-weight: bold; margin-top: 10px;">${dadosCliente.length}</div>
-                        </div>
-                        <div style="background: #fef3c7; padding: 15px; border-radius: 8px;">
-                            <strong>D&G</strong>
-                            <div style="font-size: 32px; font-weight: bold; margin-top: 10px;">${dadosDG.length}</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        return `
-            <div style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
-                <h3 style="margin: 0 0 15px 0;">${getIconeTipologia(tipologia)} ${tipologia}</h3>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px;">
-                    <div>
-                        <div style="color: #64748b;">Em Análise</div>
-                        <div style="font-size: 24px; font-weight: bold;">${dadosTipologia.filter(item => 
-                            item.resultado_analise_tecnica === 'Análise Técnica Concluída' || 
-                            !item.reparacao || item.reparacao === ''
-                        ).length}</div>
-                    </div>
-                    <div>
-                        <div style="color: #64748b;">Aguardam Orçamento</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #f59e0b;">${dadosTipologia.filter(item => 
-                            item.resultado_orcamento === 'Aguardar Orçamento' || 
-                            item.resultado_orcamento === 'Orçamento Pendente'
-                        ).length}</div>
-                    </div>
-                    <div>
-                        <div style="color: #64748b;">Orçamento Aceite</div>
-                        <div style="font-size: 24px; font-weight: bold; color: #10b981;">${dadosTipologia.filter(item => 
-                            item.resultado_orcamento === 'Orçamento Aceite'
-                        ).length}</div>
-                    </div>
-                    <div>
-                        <div style="color: #64748b;">% Aceitação</div>
-                        <div style="font-size: 24px; font-weight: bold;">${dadosTipologia.length > 0 ? 
-                            Math.round(dadosTipologia.filter(item => item.resultado_orcamento === 'Orçamento Aceite').length / dadosTipologia.length * 100) : 0}%</div>
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-    
-    return `<!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="UTF-8">
-        <title>Relatório de OS Abertas - Centro Técnico</title>
-        <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-                font-family: 'Segoe UI', Arial, sans-serif;
-                padding: 40px;
-                color: #1e293b;
+        const total = dados.length, emAnalise = dados.filter(i=>i.resultado_analise_tecnica==='Análise Técnica Concluída'||!i.reparacao).length, aguardam = dados.filter(i=>i.resultado_orcamento==='Aguardar Orçamento'||i.resultado_orcamento==='Orçamento Pendente').length, aceite = dados.filter(i=>i.resultado_orcamento==='Orçamento Aceite').length;
+        let tipologias = abertosProcessor.getTipologiasAbertos();
+        if (filtroAbertos.tipologia !== 'todas') tipologias = [filtroAbertos.tipologia];
+        const cardsHTML = tipologias.map(tip => {
+            let dt = abertosProcessor.dados.filter(i=>i.tipologia===tip);
+            if (tip==='Mobile' && filtroAbertos.tipologia==='Mobile' && filtroAbertos.mobileTipo!=='todos') dt = dt.filter(i=>filtroAbertos.mobileTipo==='dg'?i.tipo_garantia==='Seguro D&G':i.tipo_garantia&&i.tipo_garantia!=='Seguro D&G');
+            if (tip==='Mobile' && filtroAbertos.tipologia==='todas') {
+                const c = dt.filter(i=>i.tipo_garantia!=='Seguro D&G'), dg = dt.filter(i=>i.tipo_garantia==='Seguro D&G');
+                return `<div style="background:white;border-radius:12px;padding:20px;margin-bottom:20px;"><h3>📱 ${tip}</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;"><div style="background:#f0f9ff;padding:15px;"><strong>Cliente</strong><div style="font-size:32px;">${c.length}</div></div><div style="background:#fef3c7;padding:15px;"><strong>D&G</strong><div style="font-size:32px;">${dg.length}</div></div></div></div>`;
             }
-            .header {
-                text-align: center;
-                margin-bottom: 30px;
-                padding-bottom: 20px;
-                border-bottom: 2px solid #2563eb;
-            }
-            .header h1 {
-                color: #1e293b;
-                margin-bottom: 10px;
-            }
-            .info-section {
-                background: #f8fafc;
-                padding: 20px;
-                border-radius: 8px;
-                margin-bottom: 30px;
-            }
-            .info-grid {
-                display: grid;
-                grid-template-columns: repeat(4, 1fr);
-                gap: 15px;
-                margin-bottom: 20px;
-            }
-            .info-card {
-                background: white;
-                padding: 15px;
-                border-radius: 8px;
-                border: 1px solid #e2e8f0;
-                text-align: center;
-            }
-            .info-card small {
-                color: #64748b;
-                font-size: 12px;
-            }
-            .info-card strong {
-                display: block;
-                font-size: 28px;
-                color: #2563eb;
-                margin-top: 5px;
-            }
-            .filtros-info {
-                background: #e0f2fe;
-                padding: 12px;
-                border-radius: 6px;
-                font-size: 14px;
-                color: #0369a1;
-            }
-            .footer {
-                margin-top: 30px;
-                padding-top: 20px;
-                text-align: center;
-                font-size: 12px;
-                color: #94a3b8;
-                border-top: 1px solid #e2e8f0;
-            }
-            @media print {
-                body { padding: 20px; }
-            }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>📋 Relatório de OS Abertas</h1>
-            <p>Centro Técnico - Gerado em ${dataAtual}</p>
-        </div>
-        
-        <div class="info-section">
-            <div class="info-grid">
-                <div class="info-card">
-                    <small>Total OS Abertas</small>
-                    <strong>${totalAbertos}</strong>
-                </div>
-                <div class="info-card">
-                    <small>Em Análise</small>
-                    <strong>${emAnalise}</strong>
-                </div>
-                <div class="info-card">
-                    <small>Aguardam Orçamento</small>
-                    <strong>${aguardamOrcamento}</strong>
-                </div>
-                <div class="info-card">
-                    <small>Orçamento Aceite</small>
-                    <strong>${orcamentoAceite}</strong>
-                </div>
-            </div>
-            
-            <div class="filtros-info">
-                <strong>🔍 Filtros aplicados:</strong> ${filtrosAtivosTexto}
-            </div>
-        </div>
-        
-        <h3>📊 Detalhamento por Tipologia</h3>
-        ${cardsHTML}
-        
-        <div class="footer">
-            <p>Relatório gerado automaticamente pelo Dashboard Centro Técnico</p>
-        </div>
-    </body>
-    </html>`;
+            return `<div style="background:white;border-radius:12px;padding:20px;margin-bottom:20px;"><h3>${getIconeTipologia(tip)} ${tip}</h3><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;"><div><div>Em Análise</div><div style="font-size:24px;">${dt.filter(i=>i.resultado_analise_tecnica==='Análise Técnica Concluída'||!i.reparacao).length}</div></div><div><div>Aguardam Orçamento</div><div style="font-size:24px;">${dt.filter(i=>i.resultado_orcamento==='Aguardar Orçamento'||i.resultado_orcamento==='Orçamento Pendente').length}</div></div><div><div>Orçamento Aceite</div><div style="font-size:24px;">${dt.filter(i=>i.resultado_orcamento==='Orçamento Aceite').length}</div></div><div><div>% Aceitação</div><div style="font-size:24px;">${dt.length?Math.round(dt.filter(i=>i.resultado_orcamento==='Orçamento Aceite').length/dt.length*100):0}%</div></div></div></div>`;
+        }).join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório OS Abertas</title><style>body{font-family:Arial;padding:40px;} .info-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:20px 0;} .info-card{background:#f8fafc;padding:15px;border-radius:8px;text-align:center;}</style></head><body><div style="text-align:center;"><h1>📋 Relatório de OS Abertas</h1><p>Gerado em ${new Date().toLocaleDateString('pt-PT')}</p></div><div class="info-grid"><div class="info-card"><small>Total OS Abertas</small><strong>${total}</strong></div><div class="info-card"><small>Em Análise</small><strong>${emAnalise}</strong></div><div class="info-card"><small>Aguardam Orçamento</small><strong>${aguardam}</strong></div><div class="info-card"><small>Orçamento Aceite</small><strong>${aceite}</strong></div></div><div><strong>Filtros:</strong> ${filtroAbertos.tipologia!=='todas'?`Tipologia: ${filtroAbertos.tipologia}${filtroAbertos.tipologia==='Mobile'&&filtroAbertos.mobileTipo!=='todos'?` (${filtroAbertos.mobileTipo==='cliente'?'Cliente':'D&G'})`:''}`:'Nenhum filtro'}</div><h3>📊 Detalhamento por Tipologia</h3>${cardsHTML}<div style="margin-top:30px;text-align:center;font-size:12px;">Relatório gerado automaticamente</div></body></html>`;
+        const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:absolute;width:0;height:0;border:none;'; document.body.appendChild(iframe);
+        const doc = iframe.contentWindow.document; doc.open(); doc.write(html); doc.close();
+        iframe.contentWindow.onload = () => { iframe.contentWindow.print(); setTimeout(()=>document.body.removeChild(iframe),1000); };
+        loading.remove();
+    } catch(e) { loading.remove(); alert('Erro ao gerar PDF'); console.error(e); }
 }
 
 // ============================================
@@ -671,26 +495,10 @@ function gerarHTMLRelatorioAbertos() {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard iniciado - Versão completa com Abertos e Produtividade');
-    
+    console.log('Dashboard iniciado');
     const btnAbertos = document.getElementById('btnAbertos');
     const btnProd = document.getElementById('btnProdutividade');
-    
-    if (btnAbertos) {
-        btnAbertos.addEventListener('click', () => {
-            btnAbertos.classList.add('ativo');
-            btnProd.classList.remove('ativo');
-            mostrarAbertos();
-        });
-    }
-    
-    if (btnProd) {
-        btnProd.addEventListener('click', () => {
-            btnProd.classList.add('ativo');
-            btnAbertos.classList.remove('ativo');
-            mostrarProdutividade();
-        });
-    }
-    
+    if (btnAbertos) btnAbertos.addEventListener('click', () => { btnAbertos.classList.add('ativo'); btnProd.classList.remove('ativo'); mostrarAbertos(); });
+    if (btnProd) btnProd.addEventListener('click', () => { btnProd.classList.add('ativo'); btnAbertos.classList.remove('ativo'); mostrarProdutividade(); });
     mostrarAbertos();
 });
