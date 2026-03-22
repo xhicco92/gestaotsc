@@ -258,7 +258,6 @@ class ProdutividadeProcessor {
         return reparados;
     }
 
-    // NOVO: Calcula quantos dias diferentes têm registo no período
     calcularDiasComRegisto(dadosFiltrados) {
         const diasSet = new Set();
         
@@ -277,10 +276,7 @@ class ProdutividadeProcessor {
         const reparados = this.calcularReparadosPorTecnico(dadosFiltrados);
         const totalReparados = Object.values(reparados).reduce((sum, val) => sum + val, 0);
         
-        // Número de dias em que houve pelo menos 1 registo
         const diasComRegisto = this.calcularDiasComRegisto(dadosFiltrados);
-        
-        // Média baseada nos dias com registo
         const mediaDiaria = diasComRegisto > 0 ? totalReparados / diasComRegisto : 0;
         
         const tecnicosAtivos = Object.values(reparados).filter(v => v > 0).length;
@@ -292,8 +288,8 @@ class ProdutividadeProcessor {
             mediaDiaria,
             mediaPorTecnico,
             tecnicosAtivos,
-            numeroDias: diasComRegisto,      // Dias com registo
-            totalDiasPeriodo: this.calcularNumeroDias(periodo)  // Total de dias do período
+            numeroDias: diasComRegisto,
+            totalDiasPeriodo: this.calcularNumeroDias(periodo)
         };
     }
 
