@@ -17,6 +17,9 @@ let filtroAtual = {
 // Controlo do seletor de datas personalizado
 let dataPickerVisible = false;
 
+// Variável para guardar os dados atuais do período
+let dadosPeriodoAtual = [];
+
 function mostrarAbertos() {
     document.getElementById('conteudo').innerHTML = `
         <div style="text-align: center; padding: 50px;">
@@ -176,7 +179,6 @@ function mostrarProdutividade() {
             input.onchange = handleUpload;
         }
         
-        // Define datas padrão no filtro personalizado
         const hoje = new Date();
         const seteDiasAtras = new Date(hoje);
         seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
@@ -191,7 +193,6 @@ function mostrarProdutividade() {
             dataFimInput.value = hoje.toISOString().split('T')[0];
         }
         
-        // Se já há dados carregados, atualiza os filtros
         if (processor.dados && processor.dados.length > 0) {
             atualizarFiltroTipologia();
             aplicarFiltroPeriodo('hoje', document.querySelector('.filtro-btn'));
@@ -199,7 +200,6 @@ function mostrarProdutividade() {
     }, 100);
 }
 
-// Alternar visibilidade do seletor de datas personalizado
 function toggleDataPicker() {
     const container = document.getElementById('dataPickerContainer');
     if (container) {
@@ -208,7 +208,6 @@ function toggleDataPicker() {
     }
 }
 
-// Gera opções de tipologia baseadas nos dados
 function gerarOpcoesTipologia() {
     if (!processor.dados || processor.dados.length === 0) {
         return '';
@@ -229,7 +228,6 @@ function atualizarFiltroTipologia() {
     }
 }
 
-// Quando a tipologia muda
 function onTipologiaChange(tipologia) {
     const mobileSubFiltro = document.getElementById('mobileSubFiltroContainer');
     
@@ -238,7 +236,6 @@ function onTipologiaChange(tipologia) {
     } else {
         mobileSubFiltro.style.display = 'none';
         filtroAtual.mobileTipo = 'todos';
-        // Reseta o select também
         const mobileSelect = document.getElementById('mobileTipo');
         if (mobileSelect) mobileSelect.value = 'todos';
     }
@@ -248,44 +245,36 @@ function onTipologiaChange(tipologia) {
     atualizarInfoFiltro();
 }
 
-// Aplica filtro por tipo de mobile (Cliente ou D&G)
 function aplicarFiltroMobileTipo(tipo) {
     filtroAtual.mobileTipo = tipo;
     aplicarFiltros();
     atualizarInfoFiltro();
 }
 
-// Aplica filtro por polo
 function aplicarFiltroPolo(polo) {
     filtroAtual.polo = polo;
     aplicarFiltros();
     atualizarInfoFiltro();
 }
 
-// Aplica filtro por período predefinido
 function aplicarFiltroPeriodo(periodo, botao) {
-    // Esconde o seletor de datas se estiver visível
     if (dataPickerVisible) {
         toggleDataPicker();
     }
     
-    // Atualiza UI dos botões
     document.querySelectorAll('.filtro-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     botao.classList.add('active');
     
-    // Atualiza estado
     filtroAtual.periodo = periodo;
     filtroAtual.dataInicio = null;
     filtroAtual.dataFim = null;
     
-    // Aplica filtro
     aplicarFiltros();
     atualizarInfoFiltro();
 }
 
-// Aplica filtro personalizado por datas
 function aplicarFiltroPersonalizado() {
     const dataInicio = document.getElementById('dataInicio').value;
     const dataFim = document.getElementById('dataFim').value;
@@ -295,31 +284,25 @@ function aplicarFiltroPersonalizado() {
         return;
     }
     
-    // Esconde o seletor
     toggleDataPicker();
     
-    // Remove active dos botões de período
     document.querySelectorAll('.filtro-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     
-    // Atualiza estado
     filtroAtual.periodo = 'personalizado';
     filtroAtual.dataInicio = new Date(dataInicio);
     filtroAtual.dataFim = new Date(dataFim);
-    filtroAtual.dataFim.setHours(23, 59, 59, 999); // Até ao final do dia
+    filtroAtual.dataFim.setHours(23, 59, 59, 999);
     
-    // Aplica filtro
     aplicarFiltros();
     atualizarInfoFiltro();
 }
 
-// Atualiza a mensagem de info com todos os filtros ativos
 function atualizarInfoFiltro() {
     const infoElement = document.getElementById('infoFiltro');
     let infoText = '';
     
-    // Informação de período
     if (filtroAtual.periodo === 'personalizado') {
         const formatarData = (data) => {
             return data.toLocaleDateString('pt-PT');
@@ -336,7 +319,6 @@ function atualizarInfoFiltro() {
         infoText = `📍 Período: <strong>${nomesPeriodo[filtroAtual.periodo]}</strong>`;
     }
     
-    // Informação de tipologia
     if (filtroAtual.tipologia !== 'todas') {
         infoText += ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>`;
         
@@ -346,7 +328,6 @@ function atualizarInfoFiltro() {
         }
     }
     
-    // Informação de polo
     if (filtroAtual.polo !== 'todos') {
         infoText += ` | Localização: <strong>${filtroAtual.polo}</strong>`;
     }
@@ -354,14 +335,11 @@ function atualizarInfoFiltro() {
     infoElement.innerHTML = infoText;
 }
 
-// Função principal de filtragem
 function aplicarFiltros() {
     if (!processor.dados || processor.dados.length === 0) return;
     
-    // Filtra os dados
     let dadosFiltrados = processor.dados;
     
-    // Aplica filtro de data
     if (filtroAtual.periodo === 'personalizado') {
         dadosFiltrados = dadosFiltrados.filter(item => {
             const dataItem = processor.getDataReparacao(item);
@@ -371,20 +349,16 @@ function aplicarFiltros() {
         dadosFiltrados = processor.filtrarPorPeriodo(filtroAtual.periodo);
     }
     
-    // Aplica filtro de tipologia
     if (filtroAtual.tipologia !== 'todas') {
         dadosFiltrados = dadosFiltrados.filter(item => 
             item.tipologia && item.tipologia === filtroAtual.tipologia
         );
         
-        // Se for Mobile, aplica sub-filtro de Cliente/D&G
         if (filtroAtual.tipologia === 'Mobile' && filtroAtual.mobileTipo !== 'todos') {
             dadosFiltrados = dadosFiltrados.filter(item => {
                 if (filtroAtual.mobileTipo === 'dg') {
-                    // D&G: tipo_garantia = "Seguro D&G"
                     return item.tipo_garantia === 'Seguro D&G';
                 } else if (filtroAtual.mobileTipo === 'cliente') {
-                    // Cliente: tipo_garantia diferente de "Seguro D&G"
                     return item.tipo_garantia && item.tipo_garantia !== 'Seguro D&G';
                 }
                 return true;
@@ -392,27 +366,24 @@ function aplicarFiltros() {
         }
     }
     
-    // Aplica filtro de polo
     if (filtroAtual.polo !== 'todos') {
         dadosFiltrados = dadosFiltrados.filter(item => 
             item.polo && item.polo === filtroAtual.polo
         );
     }
     
-    // Calcula estatísticas (agora com dias com registo)
+    dadosPeriodoAtual = dadosFiltrados;
+    
     const stats = processor.calcularEstatisticas(dadosFiltrados, filtroAtual.periodo);
     
-    // Atualiza cards
     document.getElementById('totalRep').textContent = stats.totalReparados;
     document.getElementById('mediaDia').textContent = stats.mediaDiaria.toFixed(1);
     document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
     document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
     
-    // Atualiza tabela com os dias com registo
     atualizarTabela(stats);
 }
 
-// Atualiza tabela com os dados filtrados
 function atualizarTabela(stats) {
     const tabela = document.getElementById('tabela');
     
@@ -422,7 +393,7 @@ function atualizarTabela(stats) {
     }
     
     const maxQuantidade = Math.max(...Object.values(stats.reparados));
-    const diasComRegisto = stats.numeroDias; // Número de dias que tiveram registo
+    const diasComRegisto = stats.numeroDias;
     
     const tecnicosOrdenados = Object.entries(stats.reparados)
         .filter(([_, qtd]) => qtd > 0)
@@ -430,12 +401,16 @@ function atualizarTabela(stats) {
         .slice(0, 100);
     
     tabela.innerHTML = tecnicosOrdenados.map(([tecnico, qtd]) => {
-        // Média baseada nos dias com registo (não no total do período)
         const media = diasComRegisto > 0 ? (qtd / diasComRegisto).toFixed(1) : '0.0';
         const percentual = (qtd / maxQuantidade * 100).toFixed(0);
         return `
             <tr>
-                <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;"><strong>${tecnico}</strong></td>
+                <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">
+                    <a href="javascript:void(0)" onclick="abrirDetalheTecnico('${tecnico.replace(/'/g, "\\'")}')" 
+                       style="color: #2563eb; text-decoration: none; font-weight: 600; cursor: pointer;">
+                        ${tecnico}
+                    </a>
+                </td>
                 <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${qtd}</td>
                 <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${media}</td>
                 <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">
@@ -448,7 +423,6 @@ function atualizarTabela(stats) {
     }).join('');
 }
 
-// Handle do upload
 async function handleUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -459,13 +433,9 @@ async function handleUpload(e) {
     try {
         await processor.carregarDados(file);
         
-        // Esconde área de upload
         document.getElementById('uploadArea').style.display = 'none';
-        
-        // Atualiza filtro de tipologia
         atualizarFiltroTipologia();
         
-        // Ativa o botão Hoje e aplica filtro
         const botoes = document.querySelectorAll('.filtro-btn');
         if (botoes.length > 0) {
             aplicarFiltroPeriodo('hoje', botoes[0]);
@@ -479,28 +449,42 @@ async function handleUpload(e) {
     }
 }
 
-// Inicialização
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard iniciado - Versão final com correção da média');
-    
-    const btnAbertos = document.getElementById('btnAbertos');
-    const btnProd = document.getElementById('btnProdutividade');
-    
-    if (btnAbertos) {
-        btnAbertos.addEventListener('click', () => {
-            btnAbertos.classList.add('ativo');
-            btnProd.classList.remove('ativo');
-            mostrarAbertos();
-        });
+function abrirDetalheTecnico(tecnico) {
+    if (!processor.dados || processor.dados.length === 0) {
+        alert('Carregue um ficheiro primeiro!');
+        return;
     }
     
-    if (btnProd) {
-        btnProd.addEventListener('click', () => {
-            btnProd.classList.add('ativo');
-            btnAbertos.classList.remove('ativo');
-            mostrarProdutividade();
-        });
-    }
+    let dadosTecnico = dadosPeriodoAtual.filter(item => {
+        const tecnicoItem = item.tecnico_reparacao || item.Tecnico || 'Não atribuído';
+        return tecnicoItem === tecnico;
+    });
     
-    mostrarAbertos();
-});
+    const evolucaoDiaria = {};
+    
+    dadosTecnico.forEach(item => {
+        const dataItem = processor.getDataReparacao(item);
+        if (dataItem) {
+            const dataStr = dataItem.toLocaleDateString('pt-PT');
+            evolucaoDiaria[dataStr] = (evolucaoDiaria[dataStr] || 0) + 1;
+        }
+    });
+    
+    const diasOrdenados = Object.keys(evolucaoDiaria).sort((a, b) => {
+        const [diaA, mesA, anoA] = a.split('/').map(Number);
+        const [diaB, mesB, anoB] = b.split('/').map(Number);
+        
+        if (anoA !== anoB) return anoA - anoB;
+        if (mesA !== mesB) return mesA - mesB;
+        return diaA - diaB;
+    });
+    
+    const valores = diasOrdenados.map(dia => evolucaoDiaria[dia]);
+    const maxValor = Math.max(...valores, 1);
+    
+    const modal = document.createElement('div');
+    modal.id = 'modalDetalhe';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left:
