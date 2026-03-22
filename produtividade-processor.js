@@ -68,18 +68,17 @@ class ProdutividadeProcessor {
                     
                     if (onProgress) onProgress(90, 'A filtrar dados...');
                     
-                    // APLICA FILTRO: Exclui registos com "Orçamento Rejeitado"
+                    // Exclui registos com "Orçamento Rejeitado"
                     const totalAntes = this.dados.length;
                     this.dados = this.dados.filter(item => {
                         const resultadoOrcamento = item.resultado_orcamento || '';
-                        // Exclui se for "Orçamento Rejeitado" (case insensitive)
                         return resultadoOrcamento !== 'Orçamento Rejeitado';
                     });
                     
                     console.log(`Registos removidos por "Orçamento Rejeitado": ${totalAntes - this.dados.length}`);
                     console.log(`Registos mantidos: ${this.dados.length}`);
                     
-                    // Extrai técnicos de forma otimizada
+                    // Extrai técnicos
                     const tecnicosSet = new Set();
                     const camposTecnico = this.detectarCamposTecnico(headers);
                     
@@ -93,7 +92,6 @@ class ProdutividadeProcessor {
                     
                     this.tecnicos = Array.from(tecnicosSet);
                     
-                    // Cria índices para busca rápida
                     this.criarIndices();
                     
                     if (onProgress) onProgress(100, 'Processamento concluído!');
@@ -116,7 +114,6 @@ class ProdutividadeProcessor {
         });
     }
 
-    // Detecta automaticamente campos que parecem ser de técnico
     detectarCamposTecnico(headers) {
         const palavrasChave = ['tecnico', 'técnico', 'responsavel', 'responsável', 'reparacao', 'reparação'];
         
@@ -127,7 +124,6 @@ class ProdutividadeProcessor {
         });
     }
 
-    // Cria índices para busca mais rápida
     criarIndices() {
         this.indices = {
             porTecnico: {},
@@ -137,7 +133,6 @@ class ProdutividadeProcessor {
         };
         
         this.dados.forEach((item, index) => {
-            // Índice por técnico
             const tecnico = item.tecnico_reparacao || item.Tecnico;
             if (tecnico) {
                 if (!this.indices.porTecnico[tecnico]) {
@@ -146,7 +141,6 @@ class ProdutividadeProcessor {
                 this.indices.porTecnico[tecnico].push(index);
             }
             
-            // Índice por data
             const data = this.getDataReparacao(item);
             if (data) {
                 const dataKey = data.toISOString().split('T')[0];
@@ -156,7 +150,6 @@ class ProdutividadeProcessor {
                 this.indices.porData[dataKey].push(index);
             }
             
-            // Índice por polo
             const polo = item.polo || item.Polo;
             if (polo) {
                 if (!this.indices.porPolo[polo]) {
@@ -165,7 +158,6 @@ class ProdutividadeProcessor {
                 this.indices.porPolo[polo].push(index);
             }
             
-            // Índice por tipologia
             const tipologia = item.tipologia;
             if (tipologia) {
                 if (!this.indices.porTipologia[tipologia]) {
@@ -176,7 +168,6 @@ class ProdutividadeProcessor {
         });
     }
 
-    // Versão otimizada de filtrarPorPeriodo
     filtrarPorPeriodo(periodo) {
         const hoje = new Date();
         const dataLimite = this.calcularDataLimite(periodo, hoje);
@@ -213,7 +204,6 @@ class ProdutividadeProcessor {
     }
 
     getDataReparacao(item) {
-        // Tenta diferentes formatos de data
         if (item['Dia Reparação'] && item['Mês Reparação'] && item['Ano Reparação']) {
             const dia = parseInt(item['Dia Reparação']);
             const mes = parseInt(item['Mês Reparação']) - 1;
@@ -255,7 +245,6 @@ class ProdutividadeProcessor {
         }
     }
 
-    // Calcula reparados por técnico
     calcularReparadosPorTecnico(dadosFiltrados) {
         const reparados = {};
         
@@ -269,13 +258,31 @@ class ProdutividadeProcessor {
         return reparados;
     }
 
-    // Calcula estatísticas do período
+    // NOVO: Calcula quantos dias diferentes têm registo no período
+    calcularDiasComRegisto(dadosFiltrados) {
+        const diasSet = new Set();
+        
+        dadosFiltrados.forEach(item => {
+            const dataItem = this.getDataReparacao(item);
+            if (dataItem) {
+                const chaveDia = dataItem.toISOString().split('T')[0];
+                diasSet.add(chaveDia);
+            }
+        });
+        
+        return diasSet.size;
+    }
+
     calcularEstatisticas(dadosFiltrados, periodo) {
         const reparados = this.calcularReparadosPorTecnico(dadosFiltrados);
-        
         const totalReparados = Object.values(reparados).reduce((sum, val) => sum + val, 0);
-        const numeroDias = this.calcularNumeroDias(periodo);
-        const mediaDiaria = numeroDias > 0 ? totalReparados / numeroDias : 0;
+        
+        // Número de dias em que houve pelo menos 1 registo
+        const diasComRegisto = this.calcularDiasComRegisto(dadosFiltrados);
+        
+        // Média baseada nos dias com registo
+        const mediaDiaria = diasComRegisto > 0 ? totalReparados / diasComRegisto : 0;
+        
         const tecnicosAtivos = Object.values(reparados).filter(v => v > 0).length;
         const mediaPorTecnico = tecnicosAtivos > 0 ? totalReparados / tecnicosAtivos : 0;
         
@@ -285,11 +292,11 @@ class ProdutividadeProcessor {
             mediaDiaria,
             mediaPorTecnico,
             tecnicosAtivos,
-            numeroDias
+            numeroDias: diasComRegisto,      // Dias com registo
+            totalDiasPeriodo: this.calcularNumeroDias(periodo)  // Total de dias do período
         };
     }
 
-    // Retorna lista de todas as tipologias únicas
     getTipologias() {
         const tipologias = new Set();
         
@@ -302,7 +309,6 @@ class ProdutividadeProcessor {
         return Array.from(tipologias).sort();
     }
 
-    // Retorna lista de todos os polos únicos
     getPolos() {
         const polos = new Set();
         
