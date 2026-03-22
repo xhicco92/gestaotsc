@@ -47,8 +47,24 @@ function getIconeTipologia(tipologia) {
     return icones[tipologia] || '📦';
 }
 
-// Função para calcular TAT (dias em aberto)
+// Função para normalizar tipo de garantia (agrupar EG+1 e EG+3)
+function normalizarGarantia(tipoGarantia) {
+    if (!tipoGarantia) return 'Não definido';
+    
+    // Agrupa EG+1 e EG+3 como "Extensão de Garantia"
+    if (tipoGarantia === 'EG+1' || tipoGarantia === 'EG+3') {
+        return 'Extensão de Garantia';
+    }
+    return tipoGarantia;
+}
+
+// Função para calcular TAT (dias em aberto) - exclui equipamentos com checkpoint "Debit"
 function calcularTAT(item) {
+    // Exclui equipamentos com checkpoint_atual = "Debit"
+    if (item.checkpoint_atual && item.checkpoint_atual.toString().toLowerCase() === 'debit') {
+        return null; // Exclui do cálculo
+    }
+    
     // Tenta usar a coluna "TAT TSC" se existir
     if (item['TAT TSC'] !== undefined && item['TAT TSC'] !== null && item['TAT TSC'] !== '') {
         const tatValue = parseFloat(item['TAT TSC']);
@@ -131,7 +147,7 @@ function mostrarProdutividade() {
                     <thead style="background: #f1f5f9; position: sticky; top: 0;">
                         <tr><th style="padding: 10px; text-align: left;">Técnico</th><th style="padding: 10px;">Quantidade</th><th style="padding: 10px;">Média/Dia</th><th style="padding: 10px;">%</th></tr>
                     </thead>
-                    <tbody id="tabela">${processor.dados && processor.dados.length ? '' : '}<td colspan="4" style="text-align:center; padding:30px;">Carregue um ficheiro para começar</td></tr>'}</tbody>
+                    <tbody id="tabela">${processor.dados && processor.dados.length ? '' : '}<td colspan="4" style="text-align:center; padding:30px;">Carregue um ficheiro para começar</td>'}</tbody>
                 </table>
             </div>
             
@@ -249,7 +265,7 @@ function aplicarFiltros() {
     document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
     document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
     const tabela = document.getElementById('tabela');
-    if (!stats.totalReparados) { tabela.innerHTML = '}<td colspan="4" style="text-align:center;">Nenhum reparado neste período</td></tr>'; return; }
+    if (!stats.totalReparados) { tabela.innerHTML = '}<td colspan="4" style="text-align:center;">Nenhum reparado neste período</td>'; return; }
     const maxQ = Math.max(...Object.values(stats.reparados));
     const dias = stats.numeroDias;
     tabela.innerHTML = Object.entries(stats.reparados).filter(([_,q])=>q>0).sort((a,b)=>b[1]-a[1]).map(([t,q])=>`<tr><td style="padding:8px;"><a href="javascript:void(0)" onclick="abrirDetalheTecnico('${t.replace(/'/g,"\\'")}')" style="color:#2563eb;text-decoration:none;">${t}</a></td><td style="padding:8px;text-align:center;">${q}</td><td style="padding:8px;text-align:center;">${(q/dias).toFixed(1)}</td><td style="padding:8px;"><div style="background:#e2e8f0;border-radius:10px;width:100px;height:8px;"><div style="background:#2563eb;width:${(q/maxQ*100)}%;height:8px;border-radius:10px;"></div></div></td></tr>`).join('');
@@ -304,7 +320,7 @@ async function exportarRelatorioPDF() {
 }
 
 // ============================================
-// ABA ABERTOS (COM MÉTRICAS DE TAT)
+// ABA ABERTOS (COM MÉTRICAS DE TAT E GARANTIAS AGRUPADAS)
 // ============================================
 
 function mostrarAbertos() {
@@ -400,8 +416,13 @@ function atualizarCardsAbertos() {
         }
     }
     
-    // Função para calcular TAT (dias em aberto)
+    // Função para calcular TAT (exclui Debit)
     function calcularTATItem(item) {
+        // Exclui equipamentos com checkpoint_atual = "Debit"
+        if (item.checkpoint_atual && item.checkpoint_atual.toString().toLowerCase() === 'debit') {
+            return null;
+        }
+        
         if (item['TAT TSC'] !== undefined && item['TAT TSC'] !== null && item['TAT TSC'] !== '') {
             const tatValue = parseFloat(item['TAT TSC']);
             if (!isNaN(tatValue)) return tatValue;
@@ -417,7 +438,7 @@ function atualizarCardsAbertos() {
         return null;
     }
     
-    // Calcula estatísticas por tipo de garantia
+    // Calcula estatísticas por tipo de garantia (com agrupamento)
     const garantiasMap = new Map();
     let totalEquipamentos = 0;
     let somaTATTotal = 0;
@@ -426,7 +447,8 @@ function atualizarCardsAbertos() {
     dados.forEach(item => {
         totalEquipamentos++;
         const tat = calcularTATItem(item);
-        const tipoGarantia = item.tipo_garantia || 'Não definido';
+        const tipoGarantiaOriginal = item.tipo_garantia || 'Não definido';
+        const tipoGarantia = normalizarGarantia(tipoGarantiaOriginal);
         
         if (!garantiasMap.has(tipoGarantia)) {
             garantiasMap.set(tipoGarantia, { quantidade: 0, somaTAT: 0, countTAT: 0 });
@@ -463,7 +485,7 @@ function atualizarCardsAbertos() {
             dadosTip = dadosTip.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
         }
         
-        // Calcula garantias para esta tipologia
+        // Calcula garantias para esta tipologia (com agrupamento)
         const garantiasTipMap = new Map();
         let totalTip = 0;
         let somaTATTip = 0;
@@ -472,7 +494,8 @@ function atualizarCardsAbertos() {
         dadosTip.forEach(item => {
             totalTip++;
             const tat = calcularTATItem(item);
-            const tipoGarantia = item.tipo_garantia || 'Não definido';
+            const tipoGarantiaOriginal = item.tipo_garantia || 'Não definido';
+            const tipoGarantia = normalizarGarantia(tipoGarantiaOriginal);
             
             if (!garantiasTipMap.has(tipoGarantia)) {
                 garantiasTipMap.set(tipoGarantia, { quantidade: 0, somaTAT: 0, countTAT: 0 });
@@ -536,7 +559,7 @@ function atualizarCardsAbertos() {
             `;
         }
         
-        // Para outras tipologias, mostra split por garantia
+        // Para outras tipologias, mostra split por garantia (com agrupamento)
         const garantiasHTML = Array.from(garantiasTipMap.entries()).map(([garantia, dadosGar]) => {
             const mediaTAT = dadosGar.countTAT > 0 ? (dadosGar.somaTAT / dadosGar.countTAT).toFixed(1) : 'N/A';
             return `
@@ -602,6 +625,10 @@ async function exportarAbertosPDF() {
     }
     
     function calcTAT(item) {
+        // Exclui equipamentos com checkpoint_atual = "Debit"
+        if (item.checkpoint_atual && item.checkpoint_atual.toString().toLowerCase() === 'debit') {
+            return null;
+        }
         if (item['TAT TSC'] && !isNaN(parseFloat(item['TAT TSC']))) return parseFloat(item['TAT TSC']);
         if (item.checkin) {
             const data = new Date(item.checkin);
@@ -624,12 +651,13 @@ async function exportarAbertosPDF() {
             dt = dt.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
         }
         
-        // Calcula garantias
+        // Calcula garantias (com agrupamento)
         const garantiasMap = new Map();
         let somaTATTip = 0, countTATTip = 0;
         dt.forEach(item => {
             const tat = calcTAT(item);
-            const tipoGar = item.tipo_garantia || 'Não definido';
+            const tipoGarOriginal = item.tipo_garantia || 'Não definido';
+            const tipoGar = normalizarGarantia(tipoGarOriginal);
             if (!garantiasMap.has(tipoGar)) garantiasMap.set(tipoGar, { qtd: 0, soma: 0, cnt: 0 });
             const g = garantiasMap.get(tipoGar);
             g.qtd++;
