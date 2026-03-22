@@ -487,4 +487,128 @@ function abrirDetalheTecnico(tecnico) {
     modal.style.cssText = `
         position: fixed;
         top: 0;
-        left:
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; width: 90%; max-width: 600px; max-height: 80vh; overflow: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s ease;">
+            <div style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2 style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 24px;">👤</span>
+                        ${tecnico}
+                    </h2>
+                    <p style="margin: 5px 0 0 0; color: #64748b; font-size: 14px;">
+                        Total reparado no período: <strong>${dadosTecnico.length}</strong>
+                    </p>
+                </div>
+                <button onclick="fecharModal()" style="background: none; border: none; font-size: 24px; cursor: pointer; color: #94a3b8; padding: 4px 8px;">&times;</button>
+            </div>
+            
+            <div style="padding: 24px;">
+                <h3 style="margin: 0 0 20px 0; color: #475569; font-size: 16px;">📊 Evolução Diária</h3>
+                
+                <div style="background: #f8fafc; border-radius: 8px; padding: 20px;">
+                    <div style="display: flex; align-items: flex-end; gap: 8px; min-height: 200px; padding: 10px 0;">
+                        ${diasOrdenados.map((dia, index) => {
+                            const altura = (valores[index] / maxValor) * 150;
+                            return `
+                                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                                    <div style="width: 100%; display: flex; justify-content: center;">
+                                        <div style="width: 30px; background: linear-gradient(180deg, #2563eb, #7c3aed); border-radius: 6px 6px 0 0; height: ${altura}px; transition: height 0.3s; position: relative;">
+                                            <span style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 10px; color: #475569; font-weight: bold;">${valores[index]}</span>
+                                        </div>
+                                    </div>
+                                    <span style="font-size: 10px; color: #64748b; text-align: center;">${dia}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ${diasOrdenados.length === 0 ? '<p style="text-align: center; color: #94a3b8; padding: 40px;">Nenhum registo neste período</p>' : ''}
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <h3 style="margin: 0 0 15px 0; color: #475569; font-size: 14px;">📋 Detalhamento Diário</h3>
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="position: sticky; top: 0; background: #f1f5f9;">
+                                <tr><th style="padding: 8px; text-align: left;">Data</th><th style="padding: 8px; text-align: center;">Quantidade</th></tr>
+                            </thead>
+                            <tbody>
+                                ${diasOrdenados.map(dia => `
+                                    <tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${dia}</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${evolucaoDiaria[dia]}</td></tr>
+                                `).join('')}
+                                ${diasOrdenados.length === 0 ? '<tr><td colspan="2" style="padding: 20px; text-align: center;">Sem dados</td></tr>' : ''}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end;">
+                <button onclick="fecharModal()" style="background: #f1f5f9; border: none; padding: 8px 20px; border-radius: 6px; cursor: pointer; color: #475569;">Fechar</button>
+            </div>
+        </div>
+    `;
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    `;
+    modal.appendChild(style);
+    
+    document.body.appendChild(modal);
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            fecharModal();
+        }
+    });
+}
+
+function fecharModal() {
+    const modal = document.getElementById('modalDetalhe');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Dashboard iniciado - Versão final com detalhe do técnico');
+    
+    const btnAbertos = document.getElementById('btnAbertos');
+    const btnProd = document.getElementById('btnProdutividade');
+    
+    if (btnAbertos) {
+        btnAbertos.addEventListener('click', () => {
+            btnAbertos.classList.add('ativo');
+            btnProd.classList.remove('ativo');
+            mostrarAbertos();
+        });
+    }
+    
+    if (btnProd) {
+        btnProd.addEventListener('click', () => {
+            btnProd.classList.add('ativo');
+            btnAbertos.classList.remove('ativo');
+            mostrarProdutividade();
+        });
+    }
+    
+    mostrarAbertos();
+});
