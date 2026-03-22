@@ -21,6 +21,9 @@ let filtroAbertos = {
     mobileTipo: 'todos'
 };
 
+// Cache para os dados dos cards
+let dadosGarantiaCache = {};
+
 let dataPickerVisible = false;
 let dadosPeriodoAtual = [];
 
@@ -99,7 +102,13 @@ const ordemCheckpoints = [
 ];
 
 // Função para abrir modal de detalhe por garantia
-function abrirDetalheGarantia(tipologia, garantia, dadosGarantia) {
+function abrirDetalheGarantia(tipologia, garantia, garantiaKey) {
+    const dadosGarantia = dadosGarantiaCache[garantiaKey];
+    if (!dadosGarantia || dadosGarantia.length === 0) {
+        alert('Nenhum dado disponível');
+        return;
+    }
+    
     // Agrupa equipamentos por checkpoint
     const checkpointMap = new Map();
     
@@ -140,17 +149,6 @@ function abrirDetalheGarantia(tipologia, garantia, dadosGarantia) {
                         cpData.pendentes.somaTATNao += tat;
                         cpData.pendentes.countTATNao++;
                     }
-                }
-            }
-        } else {
-            // Se checkpoint não está na lista, adiciona
-            if (!checkpointMap.has(checkpoint)) {
-                checkpointMap.set(checkpoint, { quantidade: 0, somaTAT: 0, countTAT: 0, pendentes: { sim: 0, nao: 0, somaTATSim: 0, countTATSim: 0, somaTATNao: 0, countTATNao: 0 } });
-                const cpData = checkpointMap.get(checkpoint);
-                cpData.quantidade++;
-                if (tat !== null) {
-                    cpData.somaTAT += tat;
-                    cpData.countTAT++;
                 }
             }
         }
@@ -533,7 +531,7 @@ async function exportarRelatorioPDF() {
 }
 
 // ============================================
-// ABA ABERTOS (COM DETALHE POR CHECKPOINT)
+// ABA ABERTOS (COM DETALHE POR CHECKPOINT - CORRIGIDO)
 // ============================================
 
 function mostrarAbertos() {
@@ -673,6 +671,12 @@ function atualizarCardsAbertos() {
         }
     });
     
+    // Guarda os dados no cache
+    dadosGarantiaCache = {};
+    garantiasMap.forEach((value, key) => {
+        dadosGarantiaCache[key] = value.itens;
+    });
+    
     const mediaTATTotal = countTATTotal > 0 ? (somaTATTotal / countTATTotal).toFixed(1) : 'N/A';
     
     document.getElementById('totalAbertos').textContent = totalEquipamentos;
@@ -734,11 +738,10 @@ function atualizarCardsAbertos() {
             const tipoGarantia = normalizarGarantia(tipoGarantiaOriginal);
             
             if (!garantiasTipMap.has(tipoGarantia)) {
-                garantiasTipMap.set(tipoGarantia, { quantidade: 0, somaTAT: 0, countTAT: 0, itens: [] });
+                garantiasTipMap.set(tipoGarantia, { quantidade: 0, somaTAT: 0, countTAT: 0 });
             }
             const garantia = garantiasTipMap.get(tipoGarantia);
             garantia.quantidade++;
-            garantia.itens.push(item);
             
             if (tat !== null) {
                 garantia.somaTAT += tat;
@@ -748,8 +751,9 @@ function atualizarCardsAbertos() {
         
         const garantiasHTML = Array.from(garantiasTipMap.entries()).map(([garantia, dadosGar]) => {
             const mediaTAT = dadosGar.countTAT > 0 ? (dadosGar.somaTAT / dadosGar.countTAT).toFixed(1) : 'N/A';
+            const garantiaKey = garantia;
             return `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e2e8f0;cursor:pointer;" onclick="abrirDetalheGarantia('${tip}', '${garantia}', ${JSON.stringify(dadosGar.itens).replace(/'/g, "\\'")})">
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e2e8f0;cursor:pointer;" onclick="abrirDetalheGarantia('${tip}', '${garantia}', '${garantiaKey}')">
                     <span><strong>${garantia}</strong></span>
                     <div style="text-align:right;">
                         <div>${dadosGar.quantidade} equip.</div>
