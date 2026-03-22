@@ -38,7 +38,8 @@ function toggleDataPicker() {
 
 function getIconeTipologia(tipologia) {
     const icones = {
-        'Mobile': '📱',
+        'Mobile Cliente': '👥',
+        'Mobile D&G': '🛡️',
         'Informática': '💻',
         'Entretenimento': '🎮',
         'Som e Imagem': '🎵',
@@ -265,7 +266,7 @@ function aplicarFiltros() {
     document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
     document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
     const tabela = document.getElementById('tabela');
-    if (!stats.totalReparados) { tabela.innerHTML = '}<td colspan="4" style="text-align:center;">Nenhum reparado neste período</td>'; return; }
+    if (!stats.totalReparados) { tabela.innerHTML = '<tr><td colspan="4" style="text-align:center;">Nenhum reparado neste período</td></tr>'; return; }
     const maxQ = Math.max(...Object.values(stats.reparados));
     const dias = stats.numeroDias;
     tabela.innerHTML = Object.entries(stats.reparados).filter(([_,q])=>q>0).sort((a,b)=>b[1]-a[1]).map(([t,q])=>`<tr><td style="padding:8px;"><a href="javascript:void(0)" onclick="abrirDetalheTecnico('${t.replace(/'/g,"\\'")}')" style="color:#2563eb;text-decoration:none;">${t}</a></td><td style="padding:8px;text-align:center;">${q}</td><td style="padding:8px;text-align:center;">${(q/dias).toFixed(1)}</td><td style="padding:8px;"><div style="background:#e2e8f0;border-radius:10px;width:100px;height:8px;"><div style="background:#2563eb;width:${(q/maxQ*100)}%;height:8px;border-radius:10px;"></div></div></td></tr>`).join('');
@@ -320,7 +321,7 @@ async function exportarRelatorioPDF() {
 }
 
 // ============================================
-// ABA ABERTOS (COM MÉTRICAS DE TAT E GARANTIAS AGRUPADAS)
+// ABA ABERTOS (COM CARDS SEPARADOS PARA MOBILE)
 // ============================================
 
 function mostrarAbertos() {
@@ -357,7 +358,7 @@ function mostrarAbertos() {
             
             <div id="infoAbertos" style="background: #e0f2fe; padding: 10px; border-radius: 4px; margin-bottom: 15px;">📍 Mostrando todas as tipologias</div>
             
-            <div id="cardsTipologias" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 20px;"></div>
+            <div id="cardsTipologias" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;"></div>
             
             <div class="upload-area" id="uploadAreaAbertos">
                 <input type="file" id="fileInputAbertos" accept=".xlsx,.xls,.csv" style="display:none;">
@@ -418,11 +419,7 @@ function atualizarCardsAbertos() {
     
     // Função para calcular TAT (exclui Debit)
     function calcularTATItem(item) {
-        // Exclui equipamentos com checkpoint_atual = "Debit"
-        if (item.checkpoint_atual && item.checkpoint_atual.toString().toLowerCase() === 'debit') {
-            return null;
-        }
-        
+        if (item.checkpoint_atual && item.checkpoint_atual.toString().toLowerCase() === 'debit') return null;
         if (item['TAT TSC'] !== undefined && item['TAT TSC'] !== null && item['TAT TSC'] !== '') {
             const tatValue = parseFloat(item['TAT TSC']);
             if (!isNaN(tatValue)) return tatValue;
@@ -431,14 +428,13 @@ function atualizarCardsAbertos() {
             const dataCheckin = new Date(item.checkin);
             const hoje = new Date();
             if (!isNaN(dataCheckin.getTime())) {
-                const diffTime = Math.abs(hoje - dataCheckin);
-                return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                return Math.ceil((hoje - dataCheckin) / (1000 * 60 * 60 * 24));
             }
         }
         return null;
     }
     
-    // Calcula estatísticas por tipo de garantia (com agrupamento)
+    // Calcula estatísticas por tipo de garantia
     const garantiasMap = new Map();
     let totalEquipamentos = 0;
     let somaTATTotal = 0;
@@ -465,7 +461,6 @@ function atualizarCardsAbertos() {
         }
     });
     
-    // Média TAT total
     const mediaTATTotal = countTATTotal > 0 ? (somaTATTotal / countTATTotal).toFixed(1) : 'N/A';
     
     // Atualiza cards de resumo
@@ -475,24 +470,71 @@ function atualizarCardsAbertos() {
     document.getElementById('orcamentoAceite').textContent = dados.filter(i => i.resultado_orcamento === 'Orçamento Aceite').length;
     document.getElementById('tatTotal').textContent = mediaTATTotal + ' dias';
     
-    let tipologias = abertosProcessor.getTipologiasAbertos();
-    if (filtroAbertos.tipologia !== 'todas') tipologias = [filtroAbertos.tipologia];
+    // Definir tipologias a mostrar (separando Mobile em Cliente e D&G)
+    let tipologiasParaMostrar = [];
+    
+    if (filtroAbertos.tipologia !== 'todas') {
+        if (filtroAbertos.tipologia === 'Mobile') {
+            // Se filtro Mobile, mostra apenas a opção selecionada
+            if (filtroAbertos.mobileTipo === 'cliente') {
+                tipologiasParaMostrar = ['Mobile Cliente'];
+            } else if (filtroAbertos.mobileTipo === 'dg') {
+                tipologiasParaMostrar = ['Mobile D&G'];
+            } else {
+                tipologiasParaMostrar = ['Mobile Cliente', 'Mobile D&G'];
+            }
+        } else {
+            tipologiasParaMostrar = [filtroAbertos.tipologia];
+        }
+    } else {
+        // Sem filtro, mostra todas as tipologias, separando Mobile em Cliente e D&G
+        const outrasTipologias = abertosProcessor.getTipologiasAbertos().filter(t => t !== 'Mobile');
+        tipologiasParaMostrar = [...outrasTipologias, 'Mobile Cliente', 'Mobile D&G'];
+    }
     
     const container = document.getElementById('cardsTipologias');
-    container.innerHTML = tipologias.map(tip => {
-        let dadosTip = abertosProcessor.dados.filter(i => i.tipologia === tip);
-        if (tip === 'Mobile' && filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
-            dadosTip = dadosTip.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
+    container.innerHTML = tipologiasParaMostrar.map(tip => {
+        let dadosTip = [];
+        let totalTip = 0;
+        let mediaTATTip = 'N/A';
+        let garantiasHTML = '';
+        
+        // Para Mobile Cliente ou Mobile D&G
+        if (tip === 'Mobile Cliente') {
+            dadosTip = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia !== 'Seguro D&G');
+            if (filtroAbertos.tipologia !== 'todas' && filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos' && filtroAbertos.mobileTipo !== 'cliente') {
+                dadosTip = [];
+            }
+        } else if (tip === 'Mobile D&G') {
+            dadosTip = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia === 'Seguro D&G');
+            if (filtroAbertos.tipologia !== 'todas' && filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos' && filtroAbertos.mobileTipo !== 'dg') {
+                dadosTip = [];
+            }
+        } else {
+            dadosTip = abertosProcessor.dados.filter(i => i.tipologia === tip);
         }
         
-        // Calcula garantias para esta tipologia (com agrupamento)
-        const garantiasTipMap = new Map();
-        let totalTip = 0;
-        let somaTATTip = 0;
-        let countTATTip = 0;
+        // Aplica filtro adicional se necessário
+        if (filtroAbertos.tipologia !== 'todas' && filtroAbertos.tipologia !== 'Mobile') {
+            // já filtrado acima
+        }
         
+        totalTip = dadosTip.length;
+        
+        // Calcular TAT para esta tipologia
+        let somaTATTip = 0, countTATTip = 0;
         dadosTip.forEach(item => {
-            totalTip++;
+            const tat = calcularTATItem(item);
+            if (tat !== null) {
+                somaTATTip += tat;
+                countTATTip++;
+            }
+        });
+        mediaTATTip = countTATTip > 0 ? (somaTATTip / countTATTip).toFixed(1) : 'N/A';
+        
+        // Calcular garantias para esta tipologia
+        const garantiasTipMap = new Map();
+        dadosTip.forEach(item => {
             const tat = calcularTATItem(item);
             const tipoGarantiaOriginal = item.tipo_garantia || 'Não definido';
             const tipoGarantia = normalizarGarantia(tipoGarantiaOriginal);
@@ -506,61 +548,10 @@ function atualizarCardsAbertos() {
             if (tat !== null) {
                 garantia.somaTAT += tat;
                 garantia.countTAT++;
-                somaTATTip += tat;
-                countTATTip++;
             }
         });
         
-        const mediaTATTip = countTATTip > 0 ? (somaTATTip / countTATTip).toFixed(1) : 'N/A';
-        
-        if (tip === 'Mobile' && filtroAbertos.tipologia === 'todas') {
-            const cliente = dadosTip.filter(i => i.tipo_garantia !== 'Seguro D&G');
-            const dg = dadosTip.filter(i => i.tipo_garantia === 'Seguro D&G');
-            
-            // Calcula TAT para Cliente e D&G separadamente
-            const calcTATGrupo = (grupo) => {
-                let soma = 0, count = 0;
-                grupo.forEach(item => {
-                    const tat = calcularTATItem(item);
-                    if (tat !== null) { soma += tat; count++; }
-                });
-                return count > 0 ? (soma / count).toFixed(1) : 'N/A';
-            };
-            
-            const tatCliente = calcTATGrupo(cliente);
-            const tatDG = calcTATGrupo(dg);
-            
-            return `
-                <div style="background:white;border-radius:12px;padding:20px;border:1px solid #e2e8f0;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-                        <h3 style="margin:0;">📱 ${tip}</h3>
-                        <span style="background:#2563eb;color:white;padding:4px 12px;border-radius:20px;">Total: ${totalTip}</span>
-                    </div>
-                    <div style="background:#f1f5f9;padding:8px 12px;border-radius:6px;margin-bottom:15px;">
-                        <span>📊 TAT Médio Geral: <strong>${mediaTATTip} dias</strong></span>
-                    </div>
-                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
-                        <div style="background:#f0f9ff;padding:12px;border-radius:8px;">
-                            <div style="display:flex;justify-content:space-between;">
-                                <strong>👥 Cliente</strong>
-                                <span>${cliente.length}</span>
-                            </div>
-                            <div style="font-size:12px;color:#64748b;margin-top:5px;">⏱️ TAT Médio: ${tatCliente} dias</div>
-                        </div>
-                        <div style="background:#fef3c7;padding:12px;border-radius:8px;">
-                            <div style="display:flex;justify-content:space-between;">
-                                <strong>🛡️ D&G</strong>
-                                <span>${dg.length}</span>
-                            </div>
-                            <div style="font-size:12px;color:#64748b;margin-top:5px;">⏱️ TAT Médio: ${tatDG} dias</div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-        
-        // Para outras tipologias, mostra split por garantia (com agrupamento)
-        const garantiasHTML = Array.from(garantiasTipMap.entries()).map(([garantia, dadosGar]) => {
+        garantiasHTML = Array.from(garantiasTipMap.entries()).map(([garantia, dadosGar]) => {
             const mediaTAT = dadosGar.countTAT > 0 ? (dadosGar.somaTAT / dadosGar.countTAT).toFixed(1) : 'N/A';
             return `
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #e2e8f0;">
@@ -572,6 +563,10 @@ function atualizarCardsAbertos() {
                 </div>
             `;
         }).join('');
+        
+        if (garantiasHTML === '') {
+            garantiasHTML = '<div style="padding:8px 0;color:#64748b;">Nenhum equipamento</div>';
+        }
         
         return `
             <div style="background:white;border-radius:12px;padding:20px;border:1px solid #e2e8f0;">
@@ -585,12 +580,6 @@ function atualizarCardsAbertos() {
                 <div>
                     <div style="font-weight:bold;margin-bottom:8px;color:#475569;">📋 Por tipo de garantia:</div>
                     ${garantiasHTML}
-                </div>
-                <div style="margin-top:15px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-top:15px;border-top:1px solid #e2e8f0;">
-                    <div><div style="color:#64748b;">Em Análise</div><div style="font-size:18px;font-weight:bold;">${dadosTip.filter(i => i.resultado_analise_tecnica === 'Análise Técnica Concluída' || !i.reparacao).length}</div></div>
-                    <div><div style="color:#64748b;">Aguardam</div><div style="font-size:18px;font-weight:bold;color:#f59e0b;">${dadosTip.filter(i => i.resultado_orcamento === 'Aguardar Orçamento' || i.resultado_orcamento === 'Orçamento Pendente').length}</div></div>
-                    <div><div style="color:#64748b;">Aceite</div><div style="font-size:18px;font-weight:bold;color:#10b981;">${dadosTip.filter(i => i.resultado_orcamento === 'Orçamento Aceite').length}</div></div>
-                    <div><div style="color:#64748b;">% Aceitação</div><div style="font-size:18px;font-weight:bold;">${dadosTip.length ? Math.round(dadosTip.filter(i=>i.resultado_orcamento==='Orçamento Aceite').length/dadosTip.length*100) : 0}%</div></div>
                 </div>
             </div>
         `;
@@ -625,10 +614,7 @@ async function exportarAbertosPDF() {
     }
     
     function calcTAT(item) {
-        // Exclui equipamentos com checkpoint_atual = "Debit"
-        if (item.checkpoint_atual && item.checkpoint_atual.toString().toLowerCase() === 'debit') {
-            return null;
-        }
+        if (item.checkpoint_atual && item.checkpoint_atual.toString().toLowerCase() === 'debit') return null;
         if (item['TAT TSC'] && !isNaN(parseFloat(item['TAT TSC']))) return parseFloat(item['TAT TSC']);
         if (item.checkin) {
             const data = new Date(item.checkin);
@@ -642,22 +628,37 @@ async function exportarAbertosPDF() {
     dados.forEach(i => { const t = calcTAT(i); if(t){ somaTAT+=t; countTAT++; } });
     const mediaTAT = countTAT > 0 ? (somaTAT/countTAT).toFixed(1) : 'N/A';
     
-    let tipologias = abertosProcessor.getTipologiasAbertos();
-    if (filtroAbertos.tipologia !== 'todas') tipologias = [filtroAbertos.tipologia];
+    // Definir tipologias para PDF
+    let tipologiasParaMostrar = [];
+    if (filtroAbertos.tipologia !== 'todas') {
+        if (filtroAbertos.tipologia === 'Mobile') {
+            if (filtroAbertos.mobileTipo === 'cliente') tipologiasParaMostrar = ['Mobile Cliente'];
+            else if (filtroAbertos.mobileTipo === 'dg') tipologiasParaMostrar = ['Mobile D&G'];
+            else tipologiasParaMostrar = ['Mobile Cliente', 'Mobile D&G'];
+        } else {
+            tipologiasParaMostrar = [filtroAbertos.tipologia];
+        }
+    } else {
+        const outras = abertosProcessor.getTipologiasAbertos().filter(t => t !== 'Mobile');
+        tipologiasParaMostrar = [...outras, 'Mobile Cliente', 'Mobile D&G'];
+    }
     
-    const cardsHTML = tipologias.map(tip => {
-        let dt = abertosProcessor.dados.filter(i => i.tipologia === tip);
-        if (tip === 'Mobile' && filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
-            dt = dt.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
+    const cardsHTML = tipologiasParaMostrar.map(tip => {
+        let dt = [];
+        if (tip === 'Mobile Cliente') {
+            dt = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia !== 'Seguro D&G');
+        } else if (tip === 'Mobile D&G') {
+            dt = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia === 'Seguro D&G');
+        } else {
+            dt = abertosProcessor.dados.filter(i => i.tipologia === tip);
         }
         
-        // Calcula garantias (com agrupamento)
+        // Calcular garantias
         const garantiasMap = new Map();
         let somaTATTip = 0, countTATTip = 0;
         dt.forEach(item => {
             const tat = calcTAT(item);
-            const tipoGarOriginal = item.tipo_garantia || 'Não definido';
-            const tipoGar = normalizarGarantia(tipoGarOriginal);
+            const tipoGar = normalizarGarantia(item.tipo_garantia || 'Não definido');
             if (!garantiasMap.has(tipoGar)) garantiasMap.set(tipoGar, { qtd: 0, soma: 0, cnt: 0 });
             const g = garantiasMap.get(tipoGar);
             g.qtd++;
@@ -667,18 +668,10 @@ async function exportarAbertosPDF() {
         
         const garantiasHTML = Array.from(garantiasMap.entries()).map(([nome, g]) => {
             const media = g.cnt > 0 ? (g.soma/g.cnt).toFixed(1) : 'N/A';
-            return `<div style="display:flex;justify-content:space-between;padding:5px 0;"><span>${nome}:</span><span>${g.qtd} equip. | TAT: ${media} dias</span></div>`;
+            return `<div>${nome}: ${g.qtd} equip. | TAT: ${media} dias</div>`;
         }).join('');
         
-        if (tip === 'Mobile' && filtroAbertos.tipologia === 'todas') {
-            const cliente = dt.filter(i => i.tipo_garantia !== 'Seguro D&G');
-            const dg = dt.filter(i => i.tipo_garantia === 'Seguro D&G');
-            const tatCliente = cliente.reduce((s, i) => { const t = calcTAT(i); return s + (t||0); },0) / (cliente.filter(i=>calcTAT(i)).length || 1);
-            const tatDG = dg.reduce((s, i) => { const t = calcTAT(i); return s + (t||0); },0) / (dg.filter(i=>calcTAT(i)).length || 1);
-            return `<div style="margin-bottom:20px;"><h3>📱 ${tip}</h3><div><strong>TAT Médio Geral:</strong> ${mediaTATTip} dias</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:10px;"><div><strong>Cliente:</strong> ${cliente.length} | TAT: ${tatCliente.toFixed(1)} dias</div><div><strong>D&G:</strong> ${dg.length} | TAT: ${tatDG.toFixed(1)} dias</div></div></div>`;
-        }
-        
-        return `<div style="margin-bottom:20px;"><h3>${getIconeTipologia(tip)} ${tip}</h3><div><strong>TAT Médio Geral:</strong> ${mediaTATTip} dias</div><div style="margin-top:10px;"><strong>Por garantia:</strong>${garantiasHTML}</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:10px;"><div>Em Análise: ${dt.filter(i=>i.resultado_analise_tecnica==='Análise Técnica Concluída'||!i.reparacao).length}</div><div>Aguardam: ${dt.filter(i=>i.resultado_orcamento==='Aguardar Orçamento'||i.resultado_orcamento==='Orçamento Pendente').length}</div><div>Aceite: ${dt.filter(i=>i.resultado_orcamento==='Orçamento Aceite').length}</div><div>% Aceitação: ${dt.length?Math.round(dt.filter(i=>i.resultado_orcamento==='Orçamento Aceite').length/dt.length*100):0}%</div></div></div>`;
+        return `<div style="margin-bottom:20px;"><h3>${getIconeTipologia(tip)} ${tip}</h3><div><strong>TAT Médio Geral:</strong> ${mediaTATTip} dias</div><div><strong>Por garantia:</strong> ${garantiasHTML}</div></div>`;
     }).join('');
     
     const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório OS Abertas</title><style>body{font-family:Arial;padding:40px;}</style></head><body><h1 style="text-align:center;">📋 Relatório de OS Abertas</h1><p style="text-align:center;">Gerado em ${new Date().toLocaleDateString('pt-PT')}</p><div style="display:grid;grid-template-columns:repeat(5,1fr);gap:15px;margin:20px 0;"><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Total OS</small><div style="font-size:28px;">${dados.length}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Em Análise</small><div style="font-size:28px;">${dados.filter(i=>i.resultado_analise_tecnica==='Análise Técnica Concluída'||!i.reparacao).length}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Aguardam</small><div style="font-size:28px;">${dados.filter(i=>i.resultado_orcamento==='Aguardar Orçamento'||i.resultado_orcamento==='Orçamento Pendente').length}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Aceite</small><div style="font-size:28px;">${dados.filter(i=>i.resultado_orcamento==='Orçamento Aceite').length}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>TAT Médio</small><div style="font-size:28px;">${mediaTAT}</div></div></div><h3>Detalhamento por Tipologia</h3>${cardsHTML}</body></html>`;
