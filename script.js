@@ -1,5 +1,5 @@
 // ============================================
-// DASHBOARD CENTRO TÉCNICO - VERSÃO FINAL
+// DASHBOARD CENTRO TÉCNICO - VERSÃO COM PDF
 // ============================================
 
 const processor = new ProdutividadeProcessor();
@@ -33,7 +33,16 @@ function mostrarAbertos() {
 function mostrarProdutividade() {
     const html = `
         <div>
-            <h2 style="margin-bottom: 20px;">📊 Produtividade dos Técnicos</h2>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 style="margin: 0;">📊 Produtividade dos Técnicos</h2>
+                <button onclick="exportarRelatorioPDF()" 
+                        style="background: linear-gradient(135deg, #dc2626, #b91c1c); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: bold; transition: all 0.3s;"
+                        onmouseover="this.style.transform='scale(1.05)'" 
+                        onmouseout="this.style.transform='scale(1)'">
+                    <span style="font-size: 18px;">📄</span>
+                    Exportar PDF
+                </button>
+            </div>
             
             <!-- FILTROS - TUDO NA MESMA LINHA -->
             <div style="background: #f8fafc; padding: 15px 20px; border-radius: 8px; margin-bottom: 20px;">
@@ -449,6 +458,294 @@ async function handleUpload(e) {
     }
 }
 
+// ============================================
+// EXPORTAÇÃO PARA PDF
+// ============================================
+
+async function exportarRelatorioPDF() {
+    if (!processor.dados || processor.dados.length === 0) {
+        alert('Carregue um ficheiro primeiro!');
+        return;
+    }
+    
+    // Mostra loading
+    const loadingMsg = document.createElement('div');
+    loadingMsg.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #2563eb;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 1001;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideIn 0.3s ease;
+    `;
+    loadingMsg.innerHTML = '📄 A gerar relatório...';
+    document.body.appendChild(loadingMsg);
+    
+    try {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const stats = processor.calcularEstatisticas(dadosPeriodoAtual, filtroAtual.periodo);
+        
+        const tecnicosOrdenados = Object.entries(stats.reparados)
+            .filter(([_, qtd]) => qtd > 0)
+            .sort((a, b) => b[1] - a[1]);
+        
+        const relatorioHTML = gerarHTMLRelatorio(stats, tecnicosOrdenados);
+        
+        const iframe = document.createElement('iframe');
+        iframe.style.position = 'absolute';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = 'none';
+        document.body.appendChild(iframe);
+        
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(relatorioHTML);
+        doc.close();
+        
+        iframe.contentWindow.onload = () => {
+            iframe.contentWindow.print();
+            
+            setTimeout(() => {
+                document.body.removeChild(iframe);
+            }, 1000);
+        };
+        
+        loadingMsg.remove();
+        
+    } catch (error) {
+        console.error('Erro ao gerar PDF:', error);
+        loadingMsg.style.background = '#ef4444';
+        loadingMsg.innerHTML = '❌ Erro ao gerar relatório';
+        setTimeout(() => loadingMsg.remove(), 2000);
+        alert('Erro ao gerar relatório: ' + error.message);
+    }
+}
+
+function gerarHTMLRelatorio(stats, tecnicosOrdenados) {
+    const dataAtual = new Date().toLocaleDateString('pt-PT', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+    
+    let periodoTexto = '';
+    if (filtroAtual.periodo === 'personalizado') {
+        const formatarData = (data) => data.toLocaleDateString('pt-PT');
+        periodoTexto = `${formatarData(filtroAtual.dataInicio)} a ${formatarData(filtroAtual.dataFim)}`;
+    } else {
+        const nomesPeriodo = {
+            'hoje': 'Hoje',
+            'ontem': 'Ontem',
+            'semana': 'Últimos 7 dias',
+            'mes': 'Últimos 30 dias',
+            'trimestre': 'Últimos 90 dias'
+        };
+        periodoTexto = nomesPeriodo[filtroAtual.periodo];
+    }
+    
+    let filtrosTexto = [];
+    if (filtroAtual.tipologia !== 'todas') {
+        let texto = `Tipologia: ${filtroAtual.tipologia}`;
+        if (filtroAtual.tipologia === 'Mobile' && filtroAtual.mobileTipo !== 'todos') {
+            texto += ` (${filtroAtual.mobileTipo === 'cliente' ? 'Cliente' : 'D&G'})`;
+        }
+        filtrosTexto.push(texto);
+    }
+    if (filtroAtual.polo !== 'todos') {
+        filtrosTexto.push(`Localização: ${filtroAtual.polo}`);
+    }
+    const filtrosAtivosTexto = filtrosTexto.length > 0 ? filtrosTexto.join(' | ') : 'Nenhum filtro adicional';
+    
+    const maxQuantidade = Math.max(...Object.values(stats.reparados), 1);
+    const diasComRegisto = stats.numeroDias;
+    
+    return `<!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Relatório de Produtividade - Centro Técnico</title>
+        <style>
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                padding: 40px;
+                color: #1e293b;
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 2px solid #2563eb;
+            }
+            .header h1 {
+                color: #1e293b;
+                margin-bottom: 10px;
+            }
+            .header p {
+                color: #64748b;
+            }
+            .info-section {
+                background: #f8fafc;
+                padding: 20px;
+                border-radius: 8px;
+                margin-bottom: 30px;
+            }
+            .info-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            .info-card {
+                background: white;
+                padding: 15px;
+                border-radius: 8px;
+                border: 1px solid #e2e8f0;
+                text-align: center;
+            }
+            .info-card small {
+                color: #64748b;
+                font-size: 12px;
+            }
+            .info-card strong {
+                display: block;
+                font-size: 28px;
+                color: #2563eb;
+                margin-top: 5px;
+            }
+            .filtros-info {
+                background: #e0f2fe;
+                padding: 12px;
+                border-radius: 6px;
+                margin-top: 10px;
+                font-size: 14px;
+                color: #0369a1;
+            }
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            th {
+                background: #f1f5f9;
+                padding: 12px;
+                text-align: left;
+                font-weight: 600;
+                border-bottom: 2px solid #e2e8f0;
+            }
+            td {
+                padding: 10px 12px;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .barra-container {
+                background: #e2e8f0;
+                border-radius: 10px;
+                width: 100px;
+                height: 8px;
+                overflow: hidden;
+            }
+            .barra {
+                background: linear-gradient(90deg, #2563eb, #7c3aed);
+                height: 100%;
+                border-radius: 10px;
+            }
+            .footer {
+                margin-top: 30px;
+                padding-top: 20px;
+                text-align: center;
+                font-size: 12px;
+                color: #94a3b8;
+                border-top: 1px solid #e2e8f0;
+            }
+            @media print {
+                body { padding: 20px; }
+                .no-print { display: none; }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>📊 Relatório de Produtividade</h1>
+            <p>Centro Técnico - Gerado em ${dataAtual}</p>
+        </div>
+        
+        <div class="info-section">
+            <div class="info-grid">
+                <div class="info-card">
+                    <small>Total Reparados</small>
+                    <strong>${stats.totalReparados}</strong>
+                </div>
+                <div class="info-card">
+                    <small>Média Diária</small>
+                    <strong>${stats.mediaDiaria.toFixed(1)}</strong>
+                </div>
+                <div class="info-card">
+                    <small>Técnicos Ativos</small>
+                    <strong>${stats.tecnicosAtivos}</strong>
+                </div>
+                <div class="info-card">
+                    <small>Média/Técnico</small>
+                    <strong>${stats.mediaPorTecnico.toFixed(1)}</strong>
+                </div>
+            </div>
+            
+            <div class="filtros-info">
+                <strong>📅 Período:</strong> ${periodoTexto}<br>
+                <strong>🔍 Filtros aplicados:</strong> ${filtrosAtivosTexto}<br>
+                <strong>📆 Dias com registo:</strong> ${diasComRegisto} dia(s)
+            </div>
+        </div>
+        
+        <h3>👥 Reparados por Técnico</h3>
+         <table>
+            <thead>
+                <tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>% do Total</th></tr>
+            </thead>
+            <tbody>
+                ${tecnicosOrdenados.map(([tecnico, qtd]) => {
+                    const media = diasComRegisto > 0 ? (qtd / diasComRegisto).toFixed(1) : '0.0';
+                    const percentual = (qtd / stats.totalReparados * 100).toFixed(1);
+                    const barraPercentual = (qtd / maxQuantidade * 100);
+                    return `
+                        <tr>
+                            <td><strong>${tecnico}</strong></td>
+                            <td>${qtd}</td>
+                            <td>${media}</td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div class="barra-container">
+                                        <div class="barra" style="width: ${barraPercentual}%;"></div>
+                                    </div>
+                                    <span style="font-size: 12px;">${percentual}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                }).join('')}
+            </tbody>
+         </table>
+        
+        <div class="footer">
+            <p>Relatório gerado automaticamente pelo Dashboard Centro Técnico</p>
+            <p>Os valores apresentados excluem registos com "Orçamento Rejeitado"</p>
+        </div>
+    </body>
+    </html>`;
+}
+
+// ============================================
+// MODAL DETALHE DO TÉCNICO
+// ============================================
+
 function abrirDetalheTecnico(tecnico) {
     if (!processor.dados || processor.dados.length === 0) {
         alert('Carregue um ficheiro primeiro!');
@@ -589,7 +886,7 @@ function fecharModal() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard iniciado - Versão final com detalhe do técnico');
+    console.log('Dashboard iniciado - Versão final com PDF');
     
     const btnAbertos = document.getElementById('btnAbertos');
     const btnProd = document.getElementById('btnProdutividade');
