@@ -19,7 +19,7 @@ let filtroAtual = {
 let filtroAbertos = {
     tipologia: 'todas',
     mobileTipo: 'todos',
-    marca: 'todas'  // NOVO: filtro de marca
+    marca: 'todas'
 };
 
 // Cache para os dados dos cards
@@ -84,70 +84,231 @@ const ordemCheckpoints = [
     'Controlo de Qualidade', 'Check-Out', 'Debit'
 ];
 
-// Função para abrir modal de detalhe por garantia (CORRIGIDA - usa os dados específicos)
+// Função para abrir modal de detalhe por garantia (CORRIGIDA)
 function abrirDetalheGarantia(tipologia, garantia, garantiaKey) {
-    const dadosGarantia = dadosGarantiaCache[garantiaKey];
+    // Busca os dados do cache para esta garantia
+    let dadosGarantia = dadosGarantiaCache[garantiaKey];
+    
     if (!dadosGarantia || dadosGarantia.length === 0) {
-        alert('Nenhum dado disponível');
+        alert('Nenhum dado disponível para esta garantia');
         return;
     }
     
     // Agrupa equipamentos por checkpoint
     const checkpointMap = new Map();
+    
+    // Inicializa todos os checkpoints com zeros
     ordemCheckpoints.forEach(cp => {
-        checkpointMap.set(cp, { quantidade: 0, somaTAT: 0, countTAT: 0, pendentes: { sim: 0, nao: 0, somaTATSim: 0, countTATSim: 0, somaTATNao: 0, countTATNao: 0 } });
+        checkpointMap.set(cp, { 
+            quantidade: 0, 
+            somaTAT: 0, 
+            countTAT: 0, 
+            pendentes: { 
+                sim: 0, 
+                nao: 0, 
+                somaTATSim: 0, 
+                countTATSim: 0, 
+                somaTATNao: 0, 
+                countTATNao: 0 
+            } 
+        });
     });
     
+    // Processa cada equipamento da garantia selecionada
     dadosGarantia.forEach(item => {
         let checkpoint = item.checkpoint_atual || 'Não definido';
         const tat = calcularTAT(item);
         const pendentePeca = item.pendente_peca ? item.pendente_peca.toString().toLowerCase() : '';
         
-        if (checkpoint === 'Analise Tecnica') checkpoint = 'Análise Técnica';
-        if (checkpoint === 'Intervencao Tecnica') checkpoint = 'Intervenção Técnica';
-        if (checkpoint === 'Aguarda Aceitacao Orcamento') checkpoint = 'Aguarda Aceitação Orçamento';
+        // Normaliza os nomes dos checkpoints
+        if (checkpoint === 'Analise Tecnica' || checkpoint === 'Análise Técnica') checkpoint = 'Análise Técnica';
+        if (checkpoint === 'Intervencao Tecnica' || checkpoint === 'Intervenção Técnica') checkpoint = 'Intervenção Técnica';
+        if (checkpoint === 'Aguarda Aceitacao Orcamento' || checkpoint === 'Aguarda Aceitação Orçamento') checkpoint = 'Aguarda Aceitação Orçamento';
+        if (checkpoint === 'Pre Analise' || checkpoint === 'Pré Analise' || checkpoint === 'Pré-Análise') checkpoint = 'Pré-Análise';
+        if (checkpoint === 'Nivel 3' || checkpoint === 'Nível 3') checkpoint = 'Nível 3';
+        if (checkpoint === 'Validacao FlatFee' || checkpoint === 'Validação FlatFee') checkpoint = 'Validação FlatFee';
+        if (checkpoint === 'Controlo Qualidade' || checkpoint === 'Controlo de Qualidade') checkpoint = 'Controlo de Qualidade';
         
         if (checkpointMap.has(checkpoint)) {
             const cpData = checkpointMap.get(checkpoint);
             cpData.quantidade++;
-            if (tat !== null) { cpData.somaTAT += tat; cpData.countTAT++; }
+            if (tat !== null) { 
+                cpData.somaTAT += tat; 
+                cpData.countTAT++; 
+            }
+            
+            // Para Intervenção Técnica, registra pendência de peça
             if (checkpoint === 'Intervenção Técnica') {
-                if (pendentePeca === 'sim' || pendentePeca === 's' || pendentePeca === 'true' || pendentePeca === '1') {
+                const isPendente = pendentePeca === 'sim' || pendentePeca === 's' || pendentePeca === 'true' || pendentePeca === '1';
+                if (isPendente) {
                     cpData.pendentes.sim++;
-                    if (tat !== null) { cpData.pendentes.somaTATSim += tat; cpData.pendentes.countTATSim++; }
+                    if (tat !== null) { 
+                        cpData.pendentes.somaTATSim += tat; 
+                        cpData.pendentes.countTATSim++; 
+                    }
                 } else {
                     cpData.pendentes.nao++;
-                    if (tat !== null) { cpData.pendentes.somaTATNao += tat; cpData.pendentes.countTATNao++; }
+                    if (tat !== null) { 
+                        cpData.pendentes.somaTATNao += tat; 
+                        cpData.pendentes.countTATNao++; 
+                    }
                 }
             }
         }
     });
     
+    // Gerar HTML dos checkpoints na ordem definida
     const checkpointsHTML = ordemCheckpoints.map(cp => {
         const cpData = checkpointMap.get(cp);
         if (!cpData || cpData.quantidade === 0) return '';
+        
         const mediaTAT = cpData.countTAT > 0 ? (cpData.somaTAT / cpData.countTAT).toFixed(1) : 'N/A';
+        
         let pendentesHTML = '';
-        if (cp === 'Intervenção Técnica') {
+        if (cp === 'Intervenção Técnica' && (cpData.pendentes.sim > 0 || cpData.pendentes.nao > 0)) {
             const mediaSim = cpData.pendentes.countTATSim > 0 ? (cpData.pendentes.somaTATSim / cpData.pendentes.countTATSim).toFixed(1) : 'N/A';
             const mediaNao = cpData.pendentes.countTATNao > 0 ? (cpData.pendentes.somaTATNao / cpData.pendentes.countTATNao).toFixed(1) : 'N/A';
-            pendentesHTML = `<div style="margin-left:20px;margin-top:5px;"><div style="display:flex;justify-content:space-between;padding:4px 0;"><span>├─ Pendente de Peça</span><div><strong>${cpData.pendentes.sim} equip.</strong> <span style="font-size:12px;">TAT: ${mediaSim} dias</span></div></div><div style="display:flex;justify-content:space-between;padding:4px 0;"><span>└─ Não Pendente de Peça</span><div><strong>${cpData.pendentes.nao} equip.</strong> <span style="font-size:12px;">TAT: ${mediaNao} dias</span></div></div></div>`;
+            pendentesHTML = `
+                <div style="margin-left: 20px; margin-top: 5px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+                        <span>├─ Pendente de Peça</span>
+                        <div style="text-align: right;">
+                            <span style="font-weight: bold;">${cpData.pendentes.sim} equip.</span>
+                            <span style="font-size: 12px; color: #64748b; margin-left: 10px;">⏱️ TAT: ${mediaSim} dias</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
+                        <span>└─ Não Pendente de Peça</span>
+                        <div style="text-align: right;">
+                            <span style="font-weight: bold;">${cpData.pendentes.nao} equip.</span>
+                            <span style="font-size: 12px; color: #64748b; margin-left: 10px;">⏱️ TAT: ${mediaNao} dias</span>
+                        </div>
+                    </div>
+                </div>
+            `;
         }
-        return `<div style="border-bottom:1px solid #e2e8f0;padding:10px 0;"><div style="display:flex;justify-content:space-between;"><span>📌 ${cp}</span><div><strong>${cpData.quantidade} equip.</strong> <span style="font-size:12px;">TAT: ${mediaTAT} dias</span></div></div>${pendentesHTML}</div>`;
+        
+        return `
+            <div style="border-bottom: 1px solid #e2e8f0; padding: 10px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="font-weight: 500;">📌 ${cp}</span>
+                    <div style="text-align: right;">
+                        <span style="font-weight: bold;">${cpData.quantidade} equip.</span>
+                        <span style="font-size: 12px; color: #64748b; margin-left: 15px;">⏱️ TAT Médio: ${mediaTAT} dias</span>
+                    </div>
+                </div>
+                ${pendentesHTML}
+            </div>
+        `;
     }).join('');
     
+    // Total de equipamentos
+    const totalEquipamentos = dadosGarantia.length;
     let somaTATTotal = 0, countTATTotal = 0;
-    dadosGarantia.forEach(item => { const tat = calcularTAT(item); if(tat !== null){ somaTATTotal += tat; countTATTotal++; } });
+    dadosGarantia.forEach(item => {
+        const tat = calcularTAT(item);
+        if (tat !== null) {
+            somaTATTotal += tat;
+            countTATTotal++;
+        }
+    });
     const mediaTATTotal = countTATTotal > 0 ? (somaTATTotal / countTATTotal).toFixed(1) : 'N/A';
     
+    // Criar modal
     const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
-    modal.innerHTML = `<div style="background:white;border-radius:12px;width:90%;max-width:550px;max-height:80vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2);"><div style="padding:20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;"><h2 style="margin:0;">${getIconeTipologia(tipologia)} ${tipologia}</h2><p style="margin:5px 0 0 0;">Tipo de Garantia: <strong>${garantia}</strong></p></div><div style="padding:20px;"><div style="background:#f1f5f9;padding:12px;border-radius:8px;margin-bottom:20px;"><div style="display:flex;justify-content:space-between;"><strong>Total de equipamentos:</strong><span style="font-size:24px;font-weight:bold;color:#2563eb;">${dadosGarantia.length}</span></div><div style="display:flex;justify-content:space-between;margin-top:8px;"><strong>TAT Médio Total:</strong><span>${mediaTATTotal} dias</span></div></div><h3 style="margin:0 0 15px 0;">📊 Distribuição por Checkpoint</h3><div>${checkpointsHTML || '<div style="text-align:center;padding:30px;">Nenhum checkpoint encontrado</div>'}</div></div><div style="padding:16px;border-top:1px solid #e2e8f0;text-align:right;"><button onclick="this.closest(\'div[style*="position:fixed"]\').remove()" style="background:#f1f5f9;border:none;padding:8px 24px;border-radius:6px;">Fechar</button></div></div>`;
+    modal.className = 'modal-detalhe';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; width: 90%; max-width: 550px; max-height: 80vh; overflow: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s ease;">
+            <div style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                <div>
+                    <h2 style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                        <span>${getIconeTipologia(tipologia)}</span>
+                        ${tipologia}
+                    </h2>
+                    <p style="margin: 5px 0 0 0; color: #475569;">
+                        Tipo de Garantia: <strong>${garantia}</strong>
+                    </p>
+                </div>
+                <button class="fechar-modal-btn" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #94a3b8; padding: 0 8px;">&times;</button>
+            </div>
+            
+            <div style="padding: 20px 24px;">
+                <div style="background: #f1f5f9; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span><strong>Total de equipamentos:</strong></span>
+                        <span style="font-size: 24px; font-weight: bold; color: #2563eb;">${totalEquipamentos}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                        <span><strong>TAT Médio Total:</strong></span>
+                        <span>${mediaTATTotal} dias</span>
+                    </div>
+                </div>
+                
+                <h3 style="margin: 0 0 15px 0; color: #475569; font-size: 16px;">📊 Distribuição por Checkpoint</h3>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    ${checkpointsHTML || '<div style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum checkpoint encontrado</div>'}
+                </div>
+            </div>
+            
+            <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
+                <button class="fechar-modal-btn" style="background: #f1f5f9; border: none; padding: 8px 24px; border-radius: 6px; cursor: pointer; color: #475569; font-weight: 500;">Fechar</button>
+            </div>
+        </div>
+    `;
+    
+    // Adicionar estilos de animação
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    `;
+    modal.appendChild(style);
+    
     document.body.appendChild(modal);
+    
+    // Função para fechar o modal
+    const fecharModal = () => {
+        if (modal && modal.remove) {
+            modal.remove();
+        }
+    };
+    
+    // Adicionar evento aos botões de fechar
+    const botoesFechar = modal.querySelectorAll('.fechar-modal-btn');
+    botoesFechar.forEach(btn => {
+        btn.addEventListener('click', fecharModal);
+    });
+    
+    // Fechar ao clicar fora do modal
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            fecharModal();
+        }
+    });
 }
 
 // ============================================
-// ABA PRODUTIVIDADES (RESUMIDA)
+// ABA PRODUTIVIDADES
 // ============================================
 
 function mostrarProdutividade() {
@@ -183,7 +344,7 @@ function mostrarProdutividade() {
             </div>
             <div id="infoFiltro" style="background: #e0f2fe; padding: 10px; border-radius: 4px; margin-bottom: 15px;">📍 Período: <strong>Hoje</strong></div>
             <div style="max-height: 400px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
-                <table style="width: 100%;"><thead style="background: #f1f5f9;"><tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th> </thead><tbody id="tabela"> <td colspan="4" style="text-align:center;padding:30px;">Carregue um ficheiro para começar</td> </tbody> </table>
+                <table style="width: 100%;"><thead style="background: #f1f5f9;"> <th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th> </thead><tbody id="tabela"> <td colspan="4" style="text-align:center;padding:30px;">Carregue um ficheiro para começar</td> </tbody> </table>
             </div>
             <div class="upload-area" id="uploadArea"><input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;"><button class="btn-upload" onclick="document.getElementById('fileInput').click()">📂 Selecionar Ficheiro Excel</button><div id="fileInfo" class="file-info"></div></div>
         </div>
@@ -264,11 +425,10 @@ async function exportarRelatorioPDF() { if (!processor.dados || !processor.dados
 }
 
 // ============================================
-// ABA ABERTOS (COM FILTRO DE MARCA)
+// ABA ABERTOS
 // ============================================
 
 function mostrarAbertos() {
-    // Obter marcas únicas dos dados
     let marcasUnicas = [];
     if (abertosProcessor.dados && abertosProcessor.dados.length) {
         const marcasSet = new Set();
@@ -330,7 +490,6 @@ function onTipologiaAbertosChange(tipologia) {
 }
 
 function aplicarFiltroMobileAbertos(tipo) { filtroAbertos.mobileTipo = tipo; atualizarCardsAbertos(); onTipologiaAbertosChange(filtroAbertos.tipologia); }
-
 function aplicarFiltroMarcaAbertos(marca) { filtroAbertos.marca = marca; atualizarCardsAbertos(); onTipologiaAbertosChange(filtroAbertos.tipologia); }
 
 function atualizarCardsAbertos() {
@@ -338,15 +497,12 @@ function atualizarCardsAbertos() {
     
     let dados = abertosProcessor.dados;
     
-    // Aplica filtro de tipologia
     if (filtroAbertos.tipologia !== 'todas') {
         dados = dados.filter(i => i.tipologia === filtroAbertos.tipologia);
         if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
             dados = dados.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
         }
     }
-    
-    // Aplica filtro de marca
     if (filtroAbertos.marca !== 'todas') {
         dados = dados.filter(i => i.marca === filtroAbertos.marca);
     }
@@ -358,7 +514,6 @@ function atualizarCardsAbertos() {
         return null;
     }
     
-    // Cards superiores
     const analiseEquip = dados.filter(i => i.checkpoint_atual === 'Pré-Análise' || i.checkpoint_atual === 'Pré Analise' || i.checkpoint_atual === 'Análise Técnica' || i.checkpoint_atual === 'Analise Tecnica');
     const intervencaoEquip = dados.filter(i => {
         const isInt = i.checkpoint_atual === 'Intervenção Técnica' || i.checkpoint_atual === 'Intervencao Tecnica';
@@ -377,7 +532,6 @@ function atualizarCardsAbertos() {
     document.getElementById('tatIntervencaoTecnica').innerHTML = `TAT: ${cntTI>0?(somaTI/cntTI).toFixed(1):'N/A'} dias`;
     document.getElementById('tatTotal').textContent = cntTT>0?(somaTT/cntTT).toFixed(1)+' dias':'N/A';
     
-    // Cards por tipologia - agrupa por garantia para o modal
     const garantiasMap = new Map();
     dados.forEach(item => {
         const tipoGar = normalizarGarantia(item.tipo_garantia || 'Não definido');
@@ -389,7 +543,6 @@ function atualizarCardsAbertos() {
         if(tat){ g.somaTAT += tat; g.cntTAT++; }
     });
     
-    // Guarda no cache com chave = garantia
     dadosGarantiaCache = {};
     garantiasMap.forEach((v, k) => { dadosGarantiaCache[k] = v.itens; });
     
@@ -412,23 +565,15 @@ function atualizarCardsAbertos() {
         else if (tip === 'Mobile D&G') dadosTip = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia === 'Seguro D&G');
         else dadosTip = abertosProcessor.dados.filter(i => i.tipologia === tip);
         
-        // Aplica filtros
-        if (filtroAbertos.tipologia !== 'todas' && filtroAbertos.tipologia !== 'Mobile') {
-            dadosTip = dadosTip.filter(i => i.tipologia === filtroAbertos.tipologia);
-        }
-        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') {
-            dadosTip = dadosTip.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
-        }
-        if (filtroAbertos.marca !== 'todas') {
-            dadosTip = dadosTip.filter(i => i.marca === filtroAbertos.marca);
-        }
+        if (filtroAbertos.tipologia !== 'todas' && filtroAbertos.tipologia !== 'Mobile') dadosTip = dadosTip.filter(i => i.tipologia === filtroAbertos.tipologia);
+        if (filtroAbertos.tipologia === 'Mobile' && filtroAbertos.mobileTipo !== 'todos') dadosTip = dadosTip.filter(i => filtroAbertos.mobileTipo === 'dg' ? i.tipo_garantia === 'Seguro D&G' : i.tipo_garantia !== 'Seguro D&G');
+        if (filtroAbertos.marca !== 'todas') dadosTip = dadosTip.filter(i => i.marca === filtroAbertos.marca);
         
         const totalTip = dadosTip.length;
         let somaTTip = 0, cntTTip = 0;
         dadosTip.forEach(i => { const t = calcTAT(i); if(t){ somaTTip += t; cntTTip++; } });
         const mediaTip = cntTTip>0?(somaTTip/cntTTip).toFixed(1):'N/A';
         
-        // Agrupa por garantia para esta tipologia
         const garantiasTip = new Map();
         dadosTip.forEach(item => {
             const g = normalizarGarantia(item.tipo_garantia || 'Não definido');
@@ -441,7 +586,6 @@ function atualizarCardsAbertos() {
         
         const garantiasHTML = Array.from(garantiasTip.entries()).map(([nome, g]) => {
             const media = g.cntTAT>0?(g.somaTAT/g.cntTAT).toFixed(1):'N/A';
-            // Usa a chave correta para o cache (nome da garantia)
             return `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #e2e8f0;cursor:pointer;" onclick="abrirDetalheGarantia('${tip}', '${nome}', '${nome}')"><span><strong>${nome}</strong></span><div style="text-align:right;"><div>${g.qtd} equip.</div><div style="font-size:12px;">TAT: ${media} dias</div></div></div>`;
         }).join('');
         
@@ -458,11 +602,9 @@ async function handleUploadAbertos(e) {
         await abertosProcessor.carregarDados(file);
         document.getElementById('uploadAreaAbertos').style.display = 'none';
         
-        // Atualizar filtro de tipologia
         const selTipologia = document.getElementById('filtroTipologiaAbertos');
         if (selTipologia) selTipologia.innerHTML = `<option value="todas">Todas</option>${abertosProcessor.getTipologiasAbertos().map(t=>`<option value="${t}">${t}</option>`).join('')}`;
         
-        // Atualizar filtro de marcas
         const marcasSet = new Set();
         abertosProcessor.dados.forEach(item => {
             if (item.marca && item.marca.trim() !== '') marcasSet.add(item.marca);
