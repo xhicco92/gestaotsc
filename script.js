@@ -1,5 +1,5 @@
 // ============================================
-// DASHBOARD CENTRO TÉCNICO - COM SUB-FILTRO MOBILE
+// DASHBOARD CENTRO TÉCNICO - VERSÃO FINAL
 // ============================================
 
 const processor = new ProdutividadeProcessor();
@@ -10,7 +10,7 @@ let filtroAtual = {
     dataInicio: null,
     dataFim: null,
     tipologia: 'todas',
-    mobileTipo: 'todos', // 'todos', 'cliente', 'dg'
+    mobileTipo: 'todos',
     polo: 'todos'
 };
 
@@ -237,7 +237,10 @@ function onTipologiaChange(tipologia) {
         mobileSubFiltro.style.display = 'flex';
     } else {
         mobileSubFiltro.style.display = 'none';
-        filtroAtual.mobileTipo = 'todos'; // Reseta o filtro mobile
+        filtroAtual.mobileTipo = 'todos';
+        // Reseta o select também
+        const mobileSelect = document.getElementById('mobileTipo');
+        if (mobileSelect) mobileSelect.value = 'todos';
     }
     
     filtroAtual.tipologia = tipologia;
@@ -337,7 +340,6 @@ function atualizarInfoFiltro() {
     if (filtroAtual.tipologia !== 'todas') {
         infoText += ` | Tipologia: <strong>${filtroAtual.tipologia}</strong>`;
         
-        // Se for Mobile e tiver sub-filtro ativo
         if (filtroAtual.tipologia === 'Mobile' && filtroAtual.mobileTipo !== 'todos') {
             const mobileTexto = filtroAtual.mobileTipo === 'cliente' ? 'Cliente' : 'D&G';
             infoText += ` <span style="background: #2563eb20; padding: 2px 6px; border-radius: 12px;">${mobileTexto}</span>`;
@@ -397,7 +399,7 @@ function aplicarFiltros() {
         );
     }
     
-    // Calcula estatísticas
+    // Calcula estatísticas (agora com dias com registo)
     const stats = processor.calcularEstatisticas(dadosFiltrados, filtroAtual.periodo);
     
     // Atualiza cards
@@ -406,7 +408,7 @@ function aplicarFiltros() {
     document.getElementById('tecAtivos').textContent = stats.tecnicosAtivos;
     document.getElementById('mediaTec').textContent = stats.mediaPorTecnico.toFixed(1);
     
-    // Atualiza tabela
+    // Atualiza tabela com os dias com registo
     atualizarTabela(stats);
 }
 
@@ -420,6 +422,7 @@ function atualizarTabela(stats) {
     }
     
     const maxQuantidade = Math.max(...Object.values(stats.reparados));
+    const diasComRegisto = stats.numeroDias; // Número de dias que tiveram registo
     
     const tecnicosOrdenados = Object.entries(stats.reparados)
         .filter(([_, qtd]) => qtd > 0)
@@ -427,7 +430,8 @@ function atualizarTabela(stats) {
         .slice(0, 100);
     
     tabela.innerHTML = tecnicosOrdenados.map(([tecnico, qtd]) => {
-        const media = (qtd / stats.numeroDias).toFixed(1);
+        // Média baseada nos dias com registo (não no total do período)
+        const media = diasComRegisto > 0 ? (qtd / diasComRegisto).toFixed(1) : '0.0';
         const percentual = (qtd / maxQuantidade * 100).toFixed(0);
         return `
             <tr>
@@ -477,7 +481,7 @@ async function handleUpload(e) {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard iniciado - Versão com sub-filtro Mobile');
+    console.log('Dashboard iniciado - Versão final com correção da média');
     
     const btnAbertos = document.getElementById('btnAbertos');
     const btnProd = document.getElementById('btnProdutividade');
