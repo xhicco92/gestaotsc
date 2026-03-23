@@ -1,5 +1,5 @@
 // ============================================
-// DASHBOARD CENTRO TÉCNICO - VERSÃO COMPLETA
+// DASHBOARD CENTRO TÉCNICO - VERSÃO FUNCIONAL
 // ============================================
 
 const processor = new ProdutividadeProcessor();
@@ -22,7 +22,7 @@ let filtroAbertos = {
     marca: 'todas'
 };
 
-// Cache para os dados dos cards (chave = tipologia|garantia)
+// Cache para os dados dos cards
 let dadosGarantiaCache = {};
 
 let dataPickerVisible = false;
@@ -123,7 +123,11 @@ function mostrarProdutividade() {
             <div style="max-height: 400px; overflow: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
                 <table style="width: 100%;"><thead style="background: #f1f5f9;"> <th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th> </thead><tbody id="tabela"> <td colspan="4" style="text-align:center;padding:30px;">Carregue um ficheiro para começar</td> </tbody> </table>
             </div>
-            <div class="upload-area" id="uploadArea"><input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;"><button class="btn-upload" onclick="document.getElementById('fileInput').click()">📂 Selecionar Ficheiro Excel</button><div id="fileInfo" class="file-info"></div></div>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" style="display:none;">
+                <button class="btn-upload" onclick="document.getElementById('fileInput').click()">📂 Selecionar Ficheiro Excel</button>
+                <div id="fileInfo" class="file-info"></div>
+            </div>
         </div>
     `;
     document.getElementById('conteudo').innerHTML = html;
@@ -192,7 +196,20 @@ function aplicarFiltros() {
     tabela.innerHTML = Object.entries(stats.reparados).filter(([_,q])=>q>0).sort((a,b)=>b[1]-a[1]).map(([t,q])=>`<tr><td style="padding:8px;"><a href="javascript:void(0)" onclick="abrirDetalheTecnico('${t.replace(/'/g,"\\'")}')" style="color:#2563eb;text-decoration:none;">${t}</a></td><td style="text-align:center;">${q}</td><td style="text-align:center;">${(q/dias).toFixed(1)}</td><td><div style="background:#e2e8f0;border-radius:10px;width:100px;height:8px;"><div style="background:#2563eb;width:${(q/maxQ*100)}%;height:8px;border-radius:10px;"></div></div></td></tr>`).join('');
 }
 function atualizarFiltroTipologia() { const sel = document.getElementById('filtroTipologia'); if (sel && processor.dados) sel.innerHTML = `<option value="todas">Todas</option>${processor.getTipologias().map(t=>`<option value="${t}">${t}</option>`).join('')}`; }
-async function handleUpload(e) { const file = e.target.files[0]; if (!file) return; const info = document.getElementById('fileInfo'); info.innerHTML = '📂 A processar...'; try { await processor.carregarDados(file); document.getElementById('uploadArea').style.display = 'none'; atualizarFiltroTipologia(); const btn = document.querySelector('.filtro-btn'); if (btn) aplicarFiltroPeriodo('hoje', btn); info.innerHTML = `✅ ${file.name} carregado (${processor.dados.length} registos)`; } catch(e) { info.innerHTML = `❌ Erro: ${e.message}`; } }
+async function handleUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const info = document.getElementById('fileInfo');
+    info.innerHTML = '📂 A processar...';
+    try {
+        await processor.carregarDados(file);
+        document.getElementById('uploadArea').style.display = 'none';
+        atualizarFiltroTipologia();
+        const btn = document.querySelector('.filtro-btn');
+        if (btn) aplicarFiltroPeriodo('hoje', btn);
+        info.innerHTML = `✅ ${file.name} carregado (${processor.dados.length} registos)`;
+    } catch(e) { info.innerHTML = `❌ Erro: ${e.message}`; }
+}
 function abrirDetalheTecnico(tecnico) { if (!dadosPeriodoAtual.length) return; const dados = dadosPeriodoAtual.filter(i => (i.tecnico_reparacao || i.Tecnico) === tecnico); const dias = {}; dados.forEach(i => { const d = processor.getDataReparacao(i); if(d) dias[d.toLocaleDateString('pt-PT')] = (dias[d.toLocaleDateString('pt-PT')] || 0) + 1; }); const ordenado = Object.keys(dias).sort((a,b)=>{const [da,ma,aa]=a.split('/'),[db,mb,ab]=b.split('/'); if(aa!==ab)return aa-ab; if(ma!==mb)return ma-mb; return da-db;}); const maxV = Math.max(...Object.values(dias),1); const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;'; modal.innerHTML = `<div style="background:white;border-radius:12px;width:90%;max-width:500px;max-height:80vh;overflow:auto;"><div style="padding:20px;border-bottom:1px solid #e2e8f0;"><h2>👤 ${tecnico}</h2><p>Total: <strong>${dados.length}</strong></p></div><div style="padding:20px;"><div style="display:flex;gap:8px;align-items:flex-end;min-height:150px;">${ordenado.map(d=>`<div style="flex:1;text-align:center;"><div style="background:#2563eb;height:${(dias[d]/maxV)*120}px;border-radius:4px 4px 0 0;"></div><span style="font-size:10px;">${d}</span><div>${dias[d]}</div></div>`).join('')}</div></div><div style="padding:20px;border-top:1px solid #e2e8f0;text-align:right;"><button onclick="this.closest(\'div[style*="position:fixed"]\').remove()" style="background:#f1f5f9;border:none;padding:8px 20px;border-radius:6px;">Fechar</button></div></div>`; document.body.appendChild(modal); }
 async function exportarRelatorioPDF() { if (!processor.dados || !processor.dados.length) { alert('Carregue um ficheiro'); return; } const loading = document.createElement('div'); loading.style.cssText = 'position:fixed;top:20px;right:20px;background:#2563eb;color:white;padding:12px;border-radius:8px;z-index:1001;'; loading.innerHTML = '📄 Gerando...'; document.body.appendChild(loading); const stats = processor.calcularEstatisticas(dadosPeriodoAtual, filtroAtual.periodo); const tecnicos = Object.entries(stats.reparados).filter(([_,q])=>q>0).sort((a,b)=>b[1]-a[1]); const periodo = filtroAtual.periodo === 'personalizado' ? `${filtroAtual.dataInicio.toLocaleDateString('pt-PT')} a ${filtroAtual.dataFim.toLocaleDateString('pt-PT')}` : ({hoje:'Hoje',ontem:'Ontem',semana:'Últimos 7 dias',mes:'Últimos 30 dias',trimestre:'Últimos 90 dias'}[filtroAtual.periodo]); const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Produtividade</title><style>body{font-family:Arial;padding:40px;}</style></head><body><h1 style="text-align:center;">📊 Relatório de Produtividade</h1><p style="text-align:center;">Gerado em ${new Date().toLocaleDateString('pt-PT')}</p><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:20px 0;"><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Total Reparados</small><div style="font-size:28px;">${stats.totalReparados}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Média Diária</small><div style="font-size:28px;">${stats.mediaDiaria.toFixed(1)}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Técnicos Ativos</small><div style="font-size:28px;">${stats.tecnicosAtivos}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Média/Técnico</small><div style="font-size:28px;">${stats.mediaPorTecnico.toFixed(1)}</div></div></div><p><strong>Período:</strong> ${periodo}</p><table border="1" cellpadding="8" style="width:100%;border-collapse:collapse;"><tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th></tr>${tecnicos.map(([t,q])=>`<tr><td>${t}</td><td>${q}</td><td>${(q/stats.numeroDias).toFixed(1)}</td><td>${((q/stats.totalReparados)*100).toFixed(1)}%</td></tr>`).join('')}</table></body></html>`;
     const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:absolute;width:0;height:0;'; document.body.appendChild(iframe);
@@ -210,9 +227,7 @@ function mostrarAbertos() {
     if (abertosProcessor.dados && abertosProcessor.dados.length) {
         const marcasSet = new Set();
         abertosProcessor.dados.forEach(item => {
-            if (item.marca && item.marca.trim() !== '') {
-                marcasSet.add(item.marca);
-            }
+            if (item.marca && item.marca.trim() !== '') marcasSet.add(item.marca);
         });
         marcasUnicas = Array.from(marcasSet).sort();
     }
@@ -240,7 +255,11 @@ function mostrarAbertos() {
             </div>
             <div id="infoAbertos" style="background: #e0f2fe; padding: 10px; border-radius: 4px; margin-bottom: 15px;">📍 Mostrando todas as tipologias</div>
             <div id="cardsTipologias" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px;"></div>
-            <div class="upload-area" id="uploadAreaAbertos"><input type="file" id="fileInputAbertos" accept=".xlsx,.xls,.csv" style="display:none;"><button class="btn-upload" onclick="document.getElementById('fileInputAbertos').click()">📂 Selecionar Ficheiro Excel</button><div id="fileInfoAbertos" class="file-info"></div></div>
+            <div class="upload-area" id="uploadAreaAbertos">
+                <input type="file" id="fileInputAbertos" accept=".xlsx,.xls,.csv" style="display:none;">
+                <button class="btn-upload" onclick="document.getElementById('fileInputAbertos').click()">📂 Selecionar Ficheiro Excel</button>
+                <div id="fileInfoAbertos" class="file-info"></div>
+            </div>
         </div>
     `;
     document.getElementById('conteudo').innerHTML = html;
@@ -291,7 +310,6 @@ function atualizarCardsAbertos() {
         return null;
     }
     
-    // Cards superiores
     const analiseEquip = dados.filter(i => {
         const cp = i.checkpoint_atual;
         return cp === 'Pré-Análise' || cp === 'Pré Analise' || cp === 'Pré-Analise' ||
@@ -314,7 +332,6 @@ function atualizarCardsAbertos() {
     document.getElementById('tatIntervencaoTecnica').innerHTML = `TAT: ${cntTI>0?(somaTI/cntTI).toFixed(1):'N/A'} dias`;
     document.getElementById('tatTotal').textContent = cntTT>0?(somaTT/cntTT).toFixed(1)+' dias':'N/A';
     
-    // ========== CARDS POR TIPOLOGIA - CORRIGIDO ==========
     let tipologiasParaMostrar = [];
     if (filtroAbertos.tipologia !== 'todas') {
         if (filtroAbertos.tipologia === 'Mobile') {
@@ -343,17 +360,13 @@ function atualizarCardsAbertos() {
             tipologiaOriginal = tip;
         }
         
-        // Aplica filtros adicionais
-        if (filtroAbertos.marca !== 'todas') {
-            dadosTip = dadosTip.filter(i => i.marca === filtroAbertos.marca);
-        }
+        if (filtroAbertos.marca !== 'todas') dadosTip = dadosTip.filter(i => i.marca === filtroAbertos.marca);
         
         const totalTip = dadosTip.length;
         let somaTTip = 0, cntTTip = 0;
         dadosTip.forEach(i => { const t = calcTAT(i); if(t){ somaTTip += t; cntTTip++; } });
         const mediaTip = cntTTip>0?(somaTTip/cntTTip).toFixed(1):'N/A';
         
-        // Agrupa por garantia para esta tipologia específica
         const garantiasTip = new Map();
         dadosTip.forEach(item => {
             const garantia = normalizarGarantia(item.tipo_garantia || 'Não definido');
@@ -367,7 +380,6 @@ function atualizarCardsAbertos() {
             if(tat){ g.somaTAT += tat; g.cntTAT++; }
         });
         
-        // Guarda no cache com chave = tipologiaOriginal|garantia
         garantiasTip.forEach((value, garantia) => {
             const cacheKey = `${tipologiaOriginal}|${garantia}`;
             dadosGarantiaCache[cacheKey] = value.itens;
@@ -383,227 +395,70 @@ function atualizarCardsAbertos() {
     }).join('');
 }
 
-// Função para abrir modal de detalhe por garantia
 function abrirDetalheGarantia(tipologia, garantia, cacheKey) {
-    // Busca os dados do cache usando a chave específica
     let dadosGarantia = dadosGarantiaCache[cacheKey];
-    
     if (!dadosGarantia || dadosGarantia.length === 0) {
         alert(`Nenhum dado disponível para ${garantia} em ${tipologia}`);
         return;
     }
     
-    // Agrupa equipamentos por checkpoint
     const checkpointMap = new Map();
-    
-    // Inicializa todos os checkpoints com zeros
     ordemCheckpoints.forEach(cp => {
-        checkpointMap.set(cp, { 
-            quantidade: 0, 
-            somaTAT: 0, 
-            countTAT: 0, 
-            pendentes: { 
-                sim: 0, 
-                nao: 0, 
-                somaTATSim: 0, 
-                countTATSim: 0, 
-                somaTATNao: 0, 
-                countTATNao: 0 
-            } 
-        });
+        checkpointMap.set(cp, { quantidade: 0, somaTAT: 0, countTAT: 0, pendentes: { sim: 0, nao: 0, somaTATSim: 0, countTATSim: 0, somaTATNao: 0, countTATNao: 0 } });
     });
     
-    // Processa cada equipamento da garantia selecionada
     dadosGarantia.forEach(item => {
         let checkpoint = item.checkpoint_atual || 'Não definido';
         const tat = calcularTAT(item);
         const pendentePeca = item.pendente_peca ? item.pendente_peca.toString().toLowerCase() : '';
         
-        // Normaliza os nomes dos checkpoints
-        if (checkpoint === 'Analise Tecnica' || checkpoint === 'Análise Técnica') checkpoint = 'Análise Técnica';
-        if (checkpoint === 'Intervencao Tecnica' || checkpoint === 'Intervenção Técnica') checkpoint = 'Intervenção Técnica';
-        if (checkpoint === 'Aguarda Aceitacao Orcamento' || checkpoint === 'Aguarda Aceitação Orçamento') checkpoint = 'Aguarda Aceitação Orçamento';
-        if (checkpoint === 'Pre Analise' || checkpoint === 'Pré Analise' || checkpoint === 'Pré-Análise') checkpoint = 'Pré-Análise';
-        if (checkpoint === 'Nivel 3' || checkpoint === 'Nível 3') checkpoint = 'Nível 3';
-        if (checkpoint === 'Validacao FlatFee' || checkpoint === 'Validação FlatFee') checkpoint = 'Validação FlatFee';
-        if (checkpoint === 'Controlo Qualidade' || checkpoint === 'Controlo de Qualidade') checkpoint = 'Controlo de Qualidade';
+        if (checkpoint === 'Analise Tecnica') checkpoint = 'Análise Técnica';
+        if (checkpoint === 'Intervencao Tecnica') checkpoint = 'Intervenção Técnica';
+        if (checkpoint === 'Aguarda Aceitacao Orcamento') checkpoint = 'Aguarda Aceitação Orçamento';
+        if (checkpoint === 'Pre Analise') checkpoint = 'Pré-Análise';
+        if (checkpoint === 'Nivel 3') checkpoint = 'Nível 3';
+        if (checkpoint === 'Validacao FlatFee') checkpoint = 'Validação FlatFee';
+        if (checkpoint === 'Controlo Qualidade') checkpoint = 'Controlo de Qualidade';
         
         if (checkpointMap.has(checkpoint)) {
             const cpData = checkpointMap.get(checkpoint);
             cpData.quantidade++;
-            if (tat !== null) { 
-                cpData.somaTAT += tat; 
-                cpData.countTAT++; 
-            }
-            
-            // Para Intervenção Técnica, registra pendência de peça
+            if (tat !== null) { cpData.somaTAT += tat; cpData.countTAT++; }
             if (checkpoint === 'Intervenção Técnica') {
                 const isPendente = pendentePeca === 'sim' || pendentePeca === 's' || pendentePeca === 'true' || pendentePeca === '1';
                 if (isPendente) {
                     cpData.pendentes.sim++;
-                    if (tat !== null) { 
-                        cpData.pendentes.somaTATSim += tat; 
-                        cpData.pendentes.countTATSim++; 
-                    }
+                    if (tat !== null) { cpData.pendentes.somaTATSim += tat; cpData.pendentes.countTATSim++; }
                 } else {
                     cpData.pendentes.nao++;
-                    if (tat !== null) { 
-                        cpData.pendentes.somaTATNao += tat; 
-                        cpData.pendentes.countTATNao++; 
-                    }
+                    if (tat !== null) { cpData.pendentes.somaTATNao += tat; cpData.pendentes.countTATNao++; }
                 }
             }
         }
     });
     
-    // Gerar HTML dos checkpoints na ordem definida
     const checkpointsHTML = ordemCheckpoints.map(cp => {
         const cpData = checkpointMap.get(cp);
         if (!cpData || cpData.quantidade === 0) return '';
-        
         const mediaTAT = cpData.countTAT > 0 ? (cpData.somaTAT / cpData.countTAT).toFixed(1) : 'N/A';
-        
         let pendentesHTML = '';
         if (cp === 'Intervenção Técnica' && (cpData.pendentes.sim > 0 || cpData.pendentes.nao > 0)) {
             const mediaSim = cpData.pendentes.countTATSim > 0 ? (cpData.pendentes.somaTATSim / cpData.pendentes.countTATSim).toFixed(1) : 'N/A';
             const mediaNao = cpData.pendentes.countTATNao > 0 ? (cpData.pendentes.somaTATNao / cpData.pendentes.countTATNao).toFixed(1) : 'N/A';
-            pendentesHTML = `
-                <div style="margin-left: 20px; margin-top: 5px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-                        <span>├─ Pendente de Peça</span>
-                        <div style="text-align: right;">
-                            <span style="font-weight: bold;">${cpData.pendentes.sim} equip.</span>
-                            <span style="font-size: 12px; color: #64748b; margin-left: 10px;">⏱️ TAT: ${mediaSim} dias</span>
-                        </div>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 0;">
-                        <span>└─ Não Pendente de Peça</span>
-                        <div style="text-align: right;">
-                            <span style="font-weight: bold;">${cpData.pendentes.nao} equip.</span>
-                            <span style="font-size: 12px; color: #64748b; margin-left: 10px;">⏱️ TAT: ${mediaNao} dias</span>
-                        </div>
-                    </div>
-                </div>
-            `;
+            pendentesHTML = `<div style="margin-left:20px;margin-top:5px;"><div style="display:flex;justify-content:space-between;padding:4px 0;"><span>├─ Pendente de Peça</span><div><strong>${cpData.pendentes.sim} equip.</strong> <span style="font-size:12px;">TAT: ${mediaSim} dias</span></div></div><div style="display:flex;justify-content:space-between;padding:4px 0;"><span>└─ Não Pendente de Peça</span><div><strong>${cpData.pendentes.nao} equip.</strong> <span style="font-size:12px;">TAT: ${mediaNao} dias</span></div></div></div>`;
         }
-        
-        return `
-            <div style="border-bottom: 1px solid #e2e8f0; padding: 10px 0;">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-weight: 500;">📌 ${cp}</span>
-                    <div style="text-align: right;">
-                        <span style="font-weight: bold;">${cpData.quantidade} equip.</span>
-                        <span style="font-size: 12px; color: #64748b; margin-left: 15px;">⏱️ TAT Médio: ${mediaTAT} dias</span>
-                    </div>
-                </div>
-                ${pendentesHTML}
-            </div>
-        `;
+        return `<div style="border-bottom:1px solid #e2e8f0;padding:10px 0;"><div style="display:flex;justify-content:space-between;"><span>📌 ${cp}</span><div><strong>${cpData.quantidade} equip.</strong> <span style="font-size:12px;">TAT: ${mediaTAT} dias</span></div></div>${pendentesHTML}</div>`;
     }).join('');
     
-    // Total de equipamentos
     const totalEquipamentos = dadosGarantia.length;
     let somaTATTotal = 0, countTATTotal = 0;
-    dadosGarantia.forEach(item => {
-        const tat = calcularTAT(item);
-        if (tat !== null) {
-            somaTATTotal += tat;
-            countTATTotal++;
-        }
-    });
+    dadosGarantia.forEach(item => { const tat = calcularTAT(item); if (tat !== null) { somaTATTotal += tat; countTATTotal++; } });
     const mediaTATTotal = countTATTotal > 0 ? (somaTATTotal / countTATTotal).toFixed(1) : 'N/A';
     
-    // Criar modal
     const modal = document.createElement('div');
-    modal.className = 'modal-detalhe';
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 1000;
-        animation: fadeIn 0.3s ease;
-    `;
-    
-    modal.innerHTML = `
-        <div style="background: white; border-radius: 12px; width: 90%; max-width: 550px; max-height: 80vh; overflow: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s ease;">
-            <div style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
-                <div>
-                    <h2 style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 8px;">
-                        <span>${getIconeTipologia(tipologia)}</span>
-                        ${tipologia}
-                    </h2>
-                    <p style="margin: 5px 0 0 0; color: #475569;">
-                        Tipo de Garantia: <strong>${garantia}</strong>
-                    </p>
-                </div>
-                <button class="fechar-modal-btn" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #94a3b8; padding: 0 8px;">&times;</button>
-            </div>
-            
-            <div style="padding: 20px 24px;">
-                <div style="background: #f1f5f9; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
-                    <div style="display: flex; justify-content: space-between;">
-                        <span><strong>Total de equipamentos:</strong></span>
-                        <span style="font-size: 24px; font-weight: bold; color: #2563eb;">${totalEquipamentos}</span>
-                    </div>
-                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
-                        <span><strong>TAT Médio Total:</strong></span>
-                        <span>${mediaTATTotal} dias</span>
-                    </div>
-                </div>
-                
-                <h3 style="margin: 0 0 15px 0; color: #475569; font-size: 16px;">📊 Distribuição por Checkpoint</h3>
-                <div style="max-height: 400px; overflow-y: auto;">
-                    ${checkpointsHTML || '<div style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum checkpoint encontrado</div>'}
-                </div>
-            </div>
-            
-            <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
-                <button class="fechar-modal-btn" style="background: #f1f5f9; border: none; padding: 8px 24px; border-radius: 6px; cursor: pointer; color: #475569; font-weight: 500;">Fechar</button>
-            </div>
-        </div>
-    `;
-    
-    // Adicionar estilos de animação
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes slideUp {
-            from { transform: translateY(20px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
-        }
-    `;
-    modal.appendChild(style);
-    
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
+    modal.innerHTML = `<div style="background:white;border-radius:12px;width:90%;max-width:550px;max-height:80vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2);"><div style="padding:20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;"><h2 style="margin:0;">${getIconeTipologia(tipologia)} ${tipologia}</h2><p style="margin:5px 0 0 0;">Tipo de Garantia: <strong>${garantia}</strong></p></div><div style="padding:20px;"><div style="background:#f1f5f9;padding:12px;border-radius:8px;margin-bottom:20px;"><div style="display:flex;justify-content:space-between;"><strong>Total de equipamentos:</strong><span style="font-size:24px;font-weight:bold;color:#2563eb;">${totalEquipamentos}</span></div><div style="display:flex;justify-content:space-between;margin-top:8px;"><strong>TAT Médio Total:</strong><span>${mediaTATTotal} dias</span></div></div><h3 style="margin:0 0 15px 0;">📊 Distribuição por Checkpoint</h3><div>${checkpointsHTML || '<div style="text-align:center;padding:30px;">Nenhum checkpoint encontrado</div>'}</div></div><div style="padding:16px;border-top:1px solid #e2e8f0;text-align:right;"><button onclick="this.closest(\'div[style*="position:fixed"]\').remove()" style="background:#f1f5f9;border:none;padding:8px 24px;border-radius:6px;">Fechar</button></div></div>`;
     document.body.appendChild(modal);
-    
-    // Função para fechar o modal
-    const fecharModal = () => {
-        if (modal && modal.remove) {
-            modal.remove();
-        }
-    };
-    
-    // Adicionar evento aos botões de fechar
-    const botoesFechar = modal.querySelectorAll('.fechar-modal-btn');
-    botoesFechar.forEach(btn => {
-        btn.addEventListener('click', fecharModal);
-    });
-    
-    // Fechar ao clicar fora do modal
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            fecharModal();
-        }
-    });
 }
 
 async function handleUploadAbertos(e) {
@@ -614,18 +469,13 @@ async function handleUploadAbertos(e) {
     try {
         await abertosProcessor.carregarDados(file);
         document.getElementById('uploadAreaAbertos').style.display = 'none';
-        
         const selTipologia = document.getElementById('filtroTipologiaAbertos');
         if (selTipologia) selTipologia.innerHTML = `<option value="todas">Todas</option>${abertosProcessor.getTipologiasAbertos().map(t=>`<option value="${t}">${t}</option>`).join('')}`;
-        
         const marcasSet = new Set();
-        abertosProcessor.dados.forEach(item => {
-            if (item.marca && item.marca.trim() !== '') marcasSet.add(item.marca);
-        });
+        abertosProcessor.dados.forEach(item => { if (item.marca && item.marca.trim() !== '') marcasSet.add(item.marca); });
         const marcasOptions = Array.from(marcasSet).sort().map(m => `<option value="${m}">${m}</option>`).join('');
         const selMarca = document.getElementById('filtroMarcaAbertos');
         if (selMarca) selMarca.innerHTML = `<option value="todas">Todas as marcas</option>${marcasOptions}`;
-        
         atualizarCardsAbertos();
         info.innerHTML = `✅ ${file.name} carregado (${abertosProcessor.dados.length} registos)`;
     } catch(e) { info.innerHTML = `❌ Erro: ${e.message}`; }
@@ -673,7 +523,6 @@ async function exportarAbertosPDF() {
         if (tip === 'Mobile Cliente') dt = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia !== 'Seguro D&G');
         else if (tip === 'Mobile D&G') dt = abertosProcessor.dados.filter(i => i.tipologia === 'Mobile' && i.tipo_garantia === 'Seguro D&G');
         else dt = abertosProcessor.dados.filter(i => i.tipologia === tip);
-        
         if (filtroAbertos.marca !== 'todas') dt = dt.filter(i => i.marca === filtroAbertos.marca);
         
         const gMap = new Map();
