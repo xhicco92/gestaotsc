@@ -22,7 +22,7 @@ let filtroAbertos = {
     marca: 'todas'
 };
 
-// Cache para os dados dos cards (chave = tipologia|garantia)
+// Cache para os dados dos cards
 let dadosGarantiaCache = {};
 
 let dataPickerVisible = false;
@@ -42,26 +42,30 @@ const STORAGE_KEYS = {
 
 function salvarDadosProdutividade() {
     if (processor.dados && processor.dados.length) {
-        localStorage.setItem(STORAGE_KEYS.PRODUTIVIDADE_DADOS, JSON.stringify(processor.dados));
-        localStorage.setItem(STORAGE_KEYS.PRODUTIVIDADE_FILTROS, JSON.stringify({
-            periodo: filtroAtual.periodo,
-            tipologia: filtroAtual.tipologia,
-            mobileTipo: filtroAtual.mobileTipo,
-            polo: filtroAtual.polo,
-            dataInicio: filtroAtual.dataInicio ? filtroAtual.dataInicio.toISOString() : null,
-            dataFim: filtroAtual.dataFim ? filtroAtual.dataFim.toISOString() : null
-        }));
+        try {
+            localStorage.setItem(STORAGE_KEYS.PRODUTIVIDADE_DADOS, JSON.stringify(processor.dados));
+            localStorage.setItem(STORAGE_KEYS.PRODUTIVIDADE_FILTROS, JSON.stringify({
+                periodo: filtroAtual.periodo,
+                tipologia: filtroAtual.tipologia,
+                mobileTipo: filtroAtual.mobileTipo,
+                polo: filtroAtual.polo,
+                dataInicio: filtroAtual.dataInicio ? filtroAtual.dataInicio.toISOString() : null,
+                dataFim: filtroAtual.dataFim ? filtroAtual.dataFim.toISOString() : null
+            }));
+        } catch(e) { console.error('Erro ao salvar produtividade:', e); }
     }
 }
 
 function salvarDadosAbertos() {
     if (abertosProcessor.dados && abertosProcessor.dados.length) {
-        localStorage.setItem(STORAGE_KEYS.ABERTOS_DADOS, JSON.stringify(abertosProcessor.dados));
-        localStorage.setItem(STORAGE_KEYS.ABERTOS_FILTROS, JSON.stringify({
-            tipologia: filtroAbertos.tipologia,
-            mobileTipo: filtroAbertos.mobileTipo,
-            marca: filtroAbertos.marca
-        }));
+        try {
+            localStorage.setItem(STORAGE_KEYS.ABERTOS_DADOS, JSON.stringify(abertosProcessor.dados));
+            localStorage.setItem(STORAGE_KEYS.ABERTOS_FILTROS, JSON.stringify({
+                tipologia: filtroAbertos.tipologia,
+                mobileTipo: filtroAbertos.mobileTipo,
+                marca: filtroAbertos.marca
+            }));
+        } catch(e) { console.error('Erro ao salvar abertos:', e); }
     }
 }
 
@@ -75,8 +79,9 @@ function carregarDadosPersistidos() {
     const prodDados = localStorage.getItem(STORAGE_KEYS.PRODUTIVIDADE_DADOS);
     if (prodDados) {
         try {
-            processor.dados = JSON.parse(prodDados);
-            console.log('Dados de produtividade carregados do storage:', processor.dados.length);
+            const dados = JSON.parse(prodDados);
+            processor.dados = dados;
+            console.log('Dados de produtividade carregados:', processor.dados.length);
             
             const prodFiltros = localStorage.getItem(STORAGE_KEYS.PRODUTIVIDADE_FILTROS);
             if (prodFiltros) {
@@ -95,8 +100,9 @@ function carregarDadosPersistidos() {
     const abertosDados = localStorage.getItem(STORAGE_KEYS.ABERTOS_DADOS);
     if (abertosDados) {
         try {
-            abertosProcessor.dados = JSON.parse(abertosDados);
-            console.log('Dados de abertos carregados do storage:', abertosProcessor.dados.length);
+            const dados = JSON.parse(abertosDados);
+            abertosProcessor.dados = dados;
+            console.log('Dados de abertos carregados:', abertosProcessor.dados.length);
             
             const abertosFiltros = localStorage.getItem(STORAGE_KEYS.ABERTOS_FILTROS);
             if (abertosFiltros) {
@@ -115,10 +121,19 @@ function atualizarFooterData() {
         const ultimaAtualizacao = localStorage.getItem(STORAGE_KEYS.ULTIMA_ATUALIZACAO);
         if (ultimaAtualizacao) {
             const data = new Date(ultimaAtualizacao);
-            footer.innerHTML = `📅 Última atualização: ${data.toLocaleDateString('pt-PT')} às ${data.toLocaleTimeString('pt-PT')} | <span style="cursor:pointer; color:#2563eb;" onclick="document.getElementById('fileInputProd').click()">📂 Carregar novo ficheiro</span>`;
+            footer.innerHTML = `📅 Última atualização: ${data.toLocaleDateString('pt-PT')} às ${data.toLocaleTimeString('pt-PT')} | <span style="cursor:pointer; color:#2563eb;" onclick="abrirSeletorArquivo()">📂 Carregar novo ficheiro</span>`;
         } else {
-            footer.innerHTML = `📅 Nenhum ficheiro carregado | <span style="cursor:pointer; color:#2563eb;" onclick="document.getElementById('fileInputProd').click()">📂 Carregar ficheiro</span>`;
+            footer.innerHTML = `📅 Nenhum ficheiro carregado | <span style="cursor:pointer; color:#2563eb;" onclick="abrirSeletorArquivo()">📂 Carregar ficheiro</span>`;
         }
+    }
+}
+
+function abrirSeletorArquivo() {
+    const abaAtiva = document.querySelector('.btn-menu.ativo');
+    if (abaAtiva && abaAtiva.textContent.includes('Abertos')) {
+        document.getElementById('fileInputAbertos')?.click();
+    } else {
+        document.getElementById('fileInputProd')?.click();
     }
 }
 
@@ -221,6 +236,7 @@ function mostrarProdutividade() {
         </div>
     `;
     document.getElementById('conteudo').innerHTML = html;
+    
     setTimeout(() => {
         const input = document.getElementById('fileInputProd');
         if (input) input.onchange = handleUploadProdutividade;
@@ -234,7 +250,6 @@ function mostrarProdutividade() {
             atualizarFiltroTipologia();
             const btn = document.querySelector('.filtro-btn');
             if (btn) aplicarFiltroPeriodo(filtroAtual.periodo, btn);
-            // Restaurar valores dos selects
             const selTipologia = document.getElementById('filtroTipologia');
             if (selTipologia) selTipologia.value = filtroAtual.tipologia;
             const selMobile = document.getElementById('mobileTipo');
@@ -365,11 +380,11 @@ function mostrarAbertos() {
         </div>
     `;
     document.getElementById('conteudo').innerHTML = html;
+    
     setTimeout(() => {
         const input = document.getElementById('fileInputAbertos');
         if (input) input.onchange = handleUploadAbertos;
         if (abertosProcessor.dados && abertosProcessor.dados.length) {
-            // Restaurar valores dos selects
             const selTipologia = document.getElementById('filtroTipologiaAbertos');
             if (selTipologia) selTipologia.value = filtroAbertos.tipologia;
             const selMobile = document.getElementById('mobileTipoAbertos');
@@ -427,7 +442,6 @@ function atualizarCardsAbertos() {
         return null;
     }
     
-    // Cards superiores
     const analiseEquip = dados.filter(i => {
         const cp = i.checkpoint_atual;
         return cp === 'Pré-Análise' || cp === 'Pré Analise' || cp === 'Pré-Analise' ||
@@ -450,7 +464,6 @@ function atualizarCardsAbertos() {
     document.getElementById('tatIntervencaoTecnica').innerHTML = `TAT: ${cntTI>0?(somaTI/cntTI).toFixed(1):'N/A'} dias`;
     document.getElementById('tatTotal').textContent = cntTT>0?(somaTT/cntTT).toFixed(1)+' dias':'N/A';
     
-    // Cards por tipologia
     let tipologiasParaMostrar = [];
     if (filtroAbertos.tipologia !== 'todas') {
         if (filtroAbertos.tipologia === 'Mobile') {
@@ -514,7 +527,6 @@ function atualizarCardsAbertos() {
     }).join('');
 }
 
-// Função para abrir modal de detalhe por garantia
 function abrirDetalheGarantia(tipologia, garantia, cacheKey) {
     let dadosGarantia = dadosGarantiaCache[cacheKey];
     if (!dadosGarantia || dadosGarantia.length === 0) {
@@ -678,7 +690,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const btnAbertos = document.getElementById('btnAbertos');
     const btnProd = document.getElementById('btnProdutividade');
-    if (btnAbertos) btnAbertos.addEventListener('click', () => { btnAbertos.classList.add('ativo'); btnProd.classList.remove('ativo'); mostrarAbertos(); });
-    if (btnProd) btnProd.addEventListener('click', () => { btnProd.classList.add('ativo'); btnAbertos.classList.remove('ativo'); mostrarProdutividade(); });
+    if (btnAbertos) btnAbertos.addEventListener('click', () => { 
+        btnAbertos.classList.add('ativo'); 
+        btnProd.classList.remove('ativo'); 
+        mostrarAbertos(); 
+    });
+    if (btnProd) btnProd.addEventListener('click', () => { 
+        btnProd.classList.add('ativo'); 
+        btnAbertos.classList.remove('ativo'); 
+        mostrarProdutividade(); 
+    });
     mostrarAbertos();
 });
