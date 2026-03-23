@@ -1,5 +1,5 @@
 // ============================================
-// DASHBOARD CENTRO TÉCNICO - VERSÃO FUNCIONAL
+// DASHBOARD CENTRO TÉCNICO - VERSÃO COMPLETA
 // ============================================
 
 const processor = new ProdutividadeProcessor();
@@ -83,6 +83,16 @@ const ordemCheckpoints = [
     'Orçamento', 'Aguarda Aceitação Orçamento', 'Validação FlatFee',
     'Controlo de Qualidade', 'Check-Out', 'Debit'
 ];
+
+// ============================================
+// FUNÇÕES DE FECHAR MODAL
+// ============================================
+
+function fecharModal(modal) {
+    if (modal && modal.remove) {
+        modal.remove();
+    }
+}
 
 // ============================================
 // ABA PRODUTIVIDADES
@@ -210,7 +220,109 @@ async function handleUpload(e) {
         info.innerHTML = `✅ ${file.name} carregado (${processor.dados.length} registos)`;
     } catch(e) { info.innerHTML = `❌ Erro: ${e.message}`; }
 }
-function abrirDetalheTecnico(tecnico) { if (!dadosPeriodoAtual.length) return; const dados = dadosPeriodoAtual.filter(i => (i.tecnico_reparacao || i.Tecnico) === tecnico); const dias = {}; dados.forEach(i => { const d = processor.getDataReparacao(i); if(d) dias[d.toLocaleDateString('pt-PT')] = (dias[d.toLocaleDateString('pt-PT')] || 0) + 1; }); const ordenado = Object.keys(dias).sort((a,b)=>{const [da,ma,aa]=a.split('/'),[db,mb,ab]=b.split('/'); if(aa!==ab)return aa-ab; if(ma!==mb)return ma-mb; return da-db;}); const maxV = Math.max(...Object.values(dias),1); const modal = document.createElement('div'); modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;'; modal.innerHTML = `<div style="background:white;border-radius:12px;width:90%;max-width:500px;max-height:80vh;overflow:auto;"><div style="padding:20px;border-bottom:1px solid #e2e8f0;"><h2>👤 ${tecnico}</h2><p>Total: <strong>${dados.length}</strong></p></div><div style="padding:20px;"><div style="display:flex;gap:8px;align-items:flex-end;min-height:150px;">${ordenado.map(d=>`<div style="flex:1;text-align:center;"><div style="background:#2563eb;height:${(dias[d]/maxV)*120}px;border-radius:4px 4px 0 0;"></div><span style="font-size:10px;">${d}</span><div>${dias[d]}</div></div>`).join('')}</div></div><div style="padding:20px;border-top:1px solid #e2e8f0;text-align:right;"><button onclick="this.closest(\'div[style*="position:fixed"]\').remove()" style="background:#f1f5f9;border:none;padding:8px 20px;border-radius:6px;">Fechar</button></div></div>`; document.body.appendChild(modal); }
+
+// Modal de detalhe do técnico (CORRIGIDO)
+function abrirDetalheTecnico(tecnico) {
+    if (!dadosPeriodoAtual.length) return;
+    const dados = dadosPeriodoAtual.filter(i => (i.tecnico_reparacao || i.Tecnico) === tecnico);
+    const dias = {};
+    dados.forEach(i => { 
+        const d = processor.getDataReparacao(i); 
+        if(d) dias[d.toLocaleDateString('pt-PT')] = (dias[d.toLocaleDateString('pt-PT')] || 0) + 1; 
+    });
+    const ordenado = Object.keys(dias).sort((a,b)=>{
+        const [da,ma,aa]=a.split('/'),[db,mb,ab]=b.split('/'); 
+        if(aa!==ab)return aa-ab; 
+        if(ma!==mb)return ma-mb; 
+        return da-db;
+    });
+    const maxV = Math.max(...Object.values(dias),1);
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal-detalhe-tecnico';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; width: 90%; max-width: 500px; max-height: 80vh; overflow: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s ease;">
+            <div style="padding: 20px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                <div>
+                    <h2 style="margin: 0;">👤 ${tecnico}</h2>
+                    <p style="margin: 5px 0 0 0; color: #64748b;">Total reparado no período: <strong>${dados.length}</strong></p>
+                </div>
+                <button class="fechar-modal-btn" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #94a3b8; padding: 0 8px;">&times;</button>
+            </div>
+            <div style="padding: 20px;">
+                <h3 style="margin: 0 0 15px 0;">📊 Evolução Diária</h3>
+                <div style="background: #f8fafc; border-radius: 8px; padding: 20px;">
+                    <div style="display: flex; align-items: flex-end; gap: 8px; min-height: 150px; padding: 10px 0;">
+                        ${ordenado.map(d => {
+                            const altura = (dias[d] / maxV) * 120;
+                            return `
+                                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                                    <div style="width: 100%; display: flex; justify-content: center;">
+                                        <div style="width: 30px; background: linear-gradient(180deg, #2563eb, #7c3aed); border-radius: 6px 6px 0 0; height: ${altura}px; position: relative;">
+                                            <span style="position: absolute; top: -20px; left: 50%; transform: translateX(-50%); font-size: 11px; font-weight: bold; color: #2563eb;">${dias[d]}</span>
+                                        </div>
+                                    </div>
+                                    <span style="font-size: 11px; color: #64748b;">${d}</span>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                    ${ordenado.length === 0 ? '<p style="text-align: center; padding: 30px;">Nenhum registo neste período</p>' : ''}
+                </div>
+                <div style="margin-top: 20px;">
+                    <h3 style="margin: 0 0 10px 0; font-size: 14px;">📋 Detalhamento Diário</h3>
+                    <div style="max-height: 200px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <table style="width: 100%; border-collapse: collapse;">
+                            <thead style="background: #f1f5f9;"><tr><th style="padding: 8px;">Data</th><th style="padding: 8px;">Quantidade</th></tr></thead>
+                            <tbody>
+                                ${ordenado.map(d => `<tr><td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${d}</td><td style="padding: 8px; border-bottom: 1px solid #e2e8f0; text-align: center;">${dias[d]}</td></tr>`).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div style="padding: 16px; border-top: 1px solid #e2e8f0; text-align: right; background: #f8fafc;">
+                <button class="fechar-modal-btn" style="background: #f1f5f9; border: none; padding: 8px 24px; border-radius: 6px; cursor: pointer;">Fechar</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Adicionar evento de fechar
+    const botoesFechar = modal.querySelectorAll('.fechar-modal-btn');
+    botoesFechar.forEach(btn => {
+        btn.addEventListener('click', () => modal.remove());
+    });
+    
+    // Fechar ao clicar fora
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+    
+    // Adicionar estilos de animação
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    `;
+    modal.appendChild(style);
+}
+
 async function exportarRelatorioPDF() { if (!processor.dados || !processor.dados.length) { alert('Carregue um ficheiro'); return; } const loading = document.createElement('div'); loading.style.cssText = 'position:fixed;top:20px;right:20px;background:#2563eb;color:white;padding:12px;border-radius:8px;z-index:1001;'; loading.innerHTML = '📄 Gerando...'; document.body.appendChild(loading); const stats = processor.calcularEstatisticas(dadosPeriodoAtual, filtroAtual.periodo); const tecnicos = Object.entries(stats.reparados).filter(([_,q])=>q>0).sort((a,b)=>b[1]-a[1]); const periodo = filtroAtual.periodo === 'personalizado' ? `${filtroAtual.dataInicio.toLocaleDateString('pt-PT')} a ${filtroAtual.dataFim.toLocaleDateString('pt-PT')}` : ({hoje:'Hoje',ontem:'Ontem',semana:'Últimos 7 dias',mes:'Últimos 30 dias',trimestre:'Últimos 90 dias'}[filtroAtual.periodo]); const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório Produtividade</title><style>body{font-family:Arial;padding:40px;}</style></head><body><h1 style="text-align:center;">📊 Relatório de Produtividade</h1><p style="text-align:center;">Gerado em ${new Date().toLocaleDateString('pt-PT')}</p><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:20px 0;"><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Total Reparados</small><div style="font-size:28px;">${stats.totalReparados}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Média Diária</small><div style="font-size:28px;">${stats.mediaDiaria.toFixed(1)}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Técnicos Ativos</small><div style="font-size:28px;">${stats.tecnicosAtivos}</div></div><div style="background:#f8fafc;padding:15px;text-align:center;"><small>Média/Técnico</small><div style="font-size:28px;">${stats.mediaPorTecnico.toFixed(1)}</div></div></div><p><strong>Período:</strong> ${periodo}</p><table border="1" cellpadding="8" style="width:100%;border-collapse:collapse;"><tr><th>Técnico</th><th>Quantidade</th><th>Média/Dia</th><th>%</th></tr>${tecnicos.map(([t,q])=>`<tr><td>${t}</td><td>${q}</td><td>${(q/stats.numeroDias).toFixed(1)}</td><td>${((q/stats.totalReparados)*100).toFixed(1)}%</td></tr>`).join('')}</table></body></html>`;
     const iframe = document.createElement('iframe'); iframe.style.cssText = 'position:absolute;width:0;height:0;'; document.body.appendChild(iframe);
     const doc = iframe.contentWindow.document; doc.open(); doc.write(html); doc.close();
@@ -395,6 +507,7 @@ function atualizarCardsAbertos() {
     }).join('');
 }
 
+// Modal de detalhe da garantia (CORRIGIDO)
 function abrirDetalheGarantia(tipologia, garantia, cacheKey) {
     let dadosGarantia = dadosGarantiaCache[cacheKey];
     if (!dadosGarantia || dadosGarantia.length === 0) {
@@ -456,9 +569,77 @@ function abrirDetalheGarantia(tipologia, garantia, cacheKey) {
     const mediaTATTotal = countTATTotal > 0 ? (somaTATTotal / countTATTotal).toFixed(1) : 'N/A';
     
     const modal = document.createElement('div');
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:1000;';
-    modal.innerHTML = `<div style="background:white;border-radius:12px;width:90%;max-width:550px;max-height:80vh;overflow:auto;box-shadow:0 20px 40px rgba(0,0,0,0.2);"><div style="padding:20px;border-bottom:1px solid #e2e8f0;background:#f8fafc;"><h2 style="margin:0;">${getIconeTipologia(tipologia)} ${tipologia}</h2><p style="margin:5px 0 0 0;">Tipo de Garantia: <strong>${garantia}</strong></p></div><div style="padding:20px;"><div style="background:#f1f5f9;padding:12px;border-radius:8px;margin-bottom:20px;"><div style="display:flex;justify-content:space-between;"><strong>Total de equipamentos:</strong><span style="font-size:24px;font-weight:bold;color:#2563eb;">${totalEquipamentos}</span></div><div style="display:flex;justify-content:space-between;margin-top:8px;"><strong>TAT Médio Total:</strong><span>${mediaTATTotal} dias</span></div></div><h3 style="margin:0 0 15px 0;">📊 Distribuição por Checkpoint</h3><div>${checkpointsHTML || '<div style="text-align:center;padding:30px;">Nenhum checkpoint encontrado</div>'}</div></div><div style="padding:16px;border-top:1px solid #e2e8f0;text-align:right;"><button onclick="this.closest(\'div[style*="position:fixed"]\').remove()" style="background:#f1f5f9;border:none;padding:8px 24px;border-radius:6px;">Fechar</button></div></div>`;
+    modal.className = 'modal-detalhe-garantia';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    modal.innerHTML = `
+        <div style="background: white; border-radius: 12px; width: 90%; max-width: 550px; max-height: 80vh; overflow: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.2); animation: slideUp 0.3s ease;">
+            <div style="padding: 20px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #f8fafc;">
+                <div>
+                    <h2 style="margin: 0; color: #1e293b; display: flex; align-items: center; gap: 8px;">
+                        <span>${getIconeTipologia(tipologia)}</span>
+                        ${tipologia}
+                    </h2>
+                    <p style="margin: 5px 0 0 0; color: #475569;">
+                        Tipo de Garantia: <strong>${garantia}</strong>
+                    </p>
+                </div>
+                <button class="fechar-modal-btn" style="background: none; border: none; font-size: 28px; cursor: pointer; color: #94a3b8; padding: 0 8px;">&times;</button>
+            </div>
+            <div style="padding: 20px 24px;">
+                <div style="background: #f1f5f9; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px;">
+                    <div style="display: flex; justify-content: space-between;">
+                        <span><strong>Total de equipamentos:</strong></span>
+                        <span style="font-size: 24px; font-weight: bold; color: #2563eb;">${totalEquipamentos}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; margin-top: 8px;">
+                        <span><strong>TAT Médio Total:</strong></span>
+                        <span>${mediaTATTotal} dias</span>
+                    </div>
+                </div>
+                <h3 style="margin: 0 0 15px 0; color: #475569; font-size: 16px;">📊 Distribuição por Checkpoint</h3>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    ${checkpointsHTML || '<div style="text-align: center; color: #94a3b8; padding: 30px;">Nenhum checkpoint encontrado</div>'}
+                </div>
+            </div>
+            <div style="padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; background: #f8fafc;">
+                <button class="fechar-modal-btn" style="background: #f1f5f9; border: none; padding: 8px 24px; border-radius: 6px; cursor: pointer;">Fechar</button>
+            </div>
+        </div>
+    `;
+    
     document.body.appendChild(modal);
+    
+    // Adicionar evento de fechar
+    const botoesFechar = modal.querySelectorAll('.fechar-modal-btn');
+    botoesFechar.forEach(btn => {
+        btn.addEventListener('click', () => modal.remove());
+    });
+    
+    // Fechar ao clicar fora
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.remove();
+    });
+    
+    // Adicionar estilos de animação
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    `;
+    modal.appendChild(style);
 }
 
 async function handleUploadAbertos(e) {
